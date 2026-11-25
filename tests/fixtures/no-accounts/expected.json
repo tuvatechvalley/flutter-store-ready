@@ -1,0 +1,32 @@
+{
+  "args": [
+    "--skip-ios"
+  ],
+  "must": [
+    {
+      "title": "Account rules",
+      "level": "pass"
+    },
+    {
+      "title": "Privacy policy",
+      "level": "manual"
+    }
+  ],
+  "must_not": [
+    {
+      "title": "Test account for store review (the app has sign-in)"
+    },
+    {
+      "title": "In-app account deletion"
+    },
+    {
+      "title": "Account deletion"
+    },
+    {
+      "title": "Privacy policy / terms describe account deletion"
+    },
+    {
+      "title": "Data your SDKs collect (declare it in both stores)"
+    }
+  ]
+}

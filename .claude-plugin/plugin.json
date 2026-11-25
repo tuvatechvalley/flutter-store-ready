@@ -1,0 +1,10 @@
+{
+  "name": "flutter-store-ready",
+  "description": "Build, harden and audit Flutter apps to store-release quality: error handling with user-friendly messages, security, large-text and responsive layouts, navigation and permission pitfalls, store policies (purchases, ads, user content, AI, data declarations), and Google Play + App Store readiness audits. Always ends with a written report of what is done and what is missing.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Mehmet Akif Akca"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/tuvatechvalley/flutter-store-ready"
+}

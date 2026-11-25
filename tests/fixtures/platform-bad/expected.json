@@ -1,0 +1,95 @@
+{
+  "args": [],
+  "must": [
+    {
+      "title": "android/key.properties",
+      "level": "fail"
+    },
+    {
+      "title": "Release signingConfig",
+      "level": "fail"
+    },
+    {
+      "title": "applicationId",
+      "level": "fail"
+    },
+    {
+      "title": "targetSdk",
+      "level": "fail"
+    },
+    {
+      "title": "INTERNET permission (main manifest)",
+      "level": "fail"
+    },
+    {
+      "title": "Cleartext HTTP",
+      "level": "fail"
+    },
+    {
+      "title": "Google Maps API key",
+      "level": "fail"
+    },
+    {
+      "title": "App name is a release name",
+      "level": "warn",
+      "section_contains": "Google Play"
+    },
+    {
+      "title": "Release fingerprints registered with Google",
+      "level": "manual"
+    },
+    {
+      "title": "Advertising ID declaration",
+      "level": "manual"
+    },
+    {
+      "title": "Bundle identifier",
+      "level": "fail"
+    },
+    {
+      "title": "Development team",
+      "level": "fail"
+    },
+    {
+      "title": "Deployment target",
+      "level": "fail"
+    },
+    {
+      "title": "iPad orientations",
+      "level": "fail"
+    },
+    {
+      "title": "App Transport Security",
+      "level": "fail"
+    },
+    {
+      "title": "Permission usage descriptions",
+      "level": "fail"
+    },
+    {
+      "title": "Tracking prompt is actually shown",
+      "level": "warn"
+    },
+    {
+      "title": "Google Maps API key (iOS)",
+      "level": "fail"
+    },
+    {
+      "title": "Sign in with Apple",
+      "level": "warn"
+    },
+    {
+      "title": "App name is a release name",
+      "level": "warn",
+      "section_contains": "App Store"
+    }
+  ],
+  "must_not": [
+    {
+      "title": "Play audit"
+    },
+    {
+      "title": "App Store audit"
+    }
+  ]
+}

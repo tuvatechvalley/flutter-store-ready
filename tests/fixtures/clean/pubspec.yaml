@@ -1,0 +1,13 @@
+name: clean
+description: Fixture that follows the rules, with decoys. Not a real app.
+version: 1.0.0+1
+environment:
+  sdk: ^3.8.0
+dependencies:
+  flutter:
+    sdk: flutter
+  dio: ^5.0.0
+  flutter_secure_storage: ^9.0.0
+  in_app_purchase: ^3.0.0
+  google_mobile_ads: ^5.0.0
+  sentry_flutter: ^8.0.0

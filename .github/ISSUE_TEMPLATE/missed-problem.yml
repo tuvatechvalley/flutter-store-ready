@@ -1,0 +1,29 @@
+name: Missed problem
+description: A real problem (crash, rejection, broken screen) the report did not catch
+title: "[Missed] <what happened>"
+labels: ["missed"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What went wrong in the app
+      description: What the user or the store reviewer saw
+    validations:
+      required: true
+  - type: textarea
+    id: cause
+    attributes:
+      label: Cause and fix
+      description: One or two sentences each, like a short post-mortem
+    validations:
+      required: true
+  - type: textarea
+    id: snippet
+    attributes:
+      label: The code or setting that caused it (remove anything private)
+      render: dart
+  - type: dropdown
+    id: general
+    attributes:
+      label: Could this happen in other apps?
+      options: ["Yes, it is a general pitfall", "Not sure", "No, specific to this project"]

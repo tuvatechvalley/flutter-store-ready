@@ -1,0 +1,28 @@
+{
+  "args": ["--skip-play", "--skip-ios"],
+  "forbidden": {"blocking": 1, "warnings": 2},
+  "must": [
+    {"title": "Global error handlers", "level": "fail"},
+    {"title": "No raw exception text shown to users", "level": "fail", "detail_contains": "orders_screen.dart", "detail_not_contains": "stock_screen.dart"},
+    {"title": "No status codes or server responses shown to users", "level": "fail"},
+    {"title": "Server error text is not passed straight to users", "level": "warn", "detail_contains": "orders_screen.dart", "detail_not_contains": "update.dart"},
+    {"title": "Error wording is plain language", "level": "warn"},
+    {"title": "Screens show a loading state while data loads", "level": "warn", "detail_contains": "stock_screen.dart"},
+    {"title": "Screens tell the user when the server call fails", "level": "warn", "detail_contains": "stock_screen.dart"},
+    {"title": "Secure token storage", "level": "fail"},
+    {"title": "In-app account deletion", "level": "fail"},
+    {"title": "Test account for store review (the app has sign-in)", "level": "manual"},
+    {"title": "Restore purchases", "level": "warn"},
+    {"title": "Ads: consent before the ad SDK starts", "level": "warn"},
+    {"title": "User content: report and block", "level": "warn"},
+    {"title": "No development servers in release code", "level": "warn"},
+    {"title": "Behaves the same for reviewers", "level": "warn"},
+    {"title": "Permissions are asked when needed, not at launch", "level": "warn"},
+    {"title": "Theme does not force full-width buttons", "level": "warn"},
+    {"title": "Back button tested (tabs / nested pages)", "level": "warn"},
+    {"title": "Data your SDKs collect (declare it in both stores)", "level": "manual", "detail_contains": "google_mobile_ads"}
+  ],
+  "must_not": [
+    {"title": "Account rules"}
+  ]
+}

@@ -16,12 +16,25 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dart-lang/setup-dart@v1
       - name: Analyze scripts (no packages needed)
-        working-directory: skills/flutter-production/scripts
+        working-directory: skills/flutter-store-ready/scripts
         run: |
           printf 'name: scripts\nenvironment:\n  sdk: ^3.8.0\n' > pubspec.yaml
           dart pub get
           dart format --output=none --set-exit-if-changed .
           dart analyze --fatal-infos .
+
+  fixtures:
+    name: Audit finds planted problems, ignores decoys
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+      - name: Regression fixtures (tests/fixtures)
+        run: dart run tests/run.dart
 
   starter:
     name: install --starter into a fresh app, then all gates
@@ -40,7 +53,7 @@ jobs:
         shell: bash
         run: |
           flutter create --org com.ci.example --platforms=android,ios ci_app
-          dart run skills/flutter-production/scripts/install.dart ci_app --starter
+          dart run skills/flutter-store-ready/scripts/install.dart ci_app --starter
       - name: Gates + report
         shell: bash
         working-directory: ci_app
@@ -49,9 +62,14 @@ jobs:
           dart format --output=none --set-exit-if-changed lib test
           flutter analyze --fatal-infos
           flutter test
-          dart run tool/flutter_production/project_report.dart . --gates-passed --no-fail
+          dart run tool/flutter_store_ready/project_report.dart . --gates-passed --no-fail
+          # The Play audit must have produced its own report (regression: it
+          # used to crash on Windows paths and only leave a warning behind).
+          test -f build/reports/flutter-store-ready/PLAY_READINESS.md
+          test -f build/reports/flutter-store-ready/APP_STORE_READINESS.md
+          dart run tool/flutter_store_ready/project_report.dart . --gates-passed --no-fail --ci
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: report-${{ matrix.os }}
-          path: ci_app/build/reports/flutter-production/
+          path: ci_app/build/reports/flutter-store-ready/

@@ -1,7 +1,7 @@
 # Google Play readiness report
 
-Generated: 2026-11-25T18:27:13.883090  
-Project: `A`
+Generated: 2026-11-25T23:40:38.544669  
+Project: `untouched`
 
 **❌ NOT READY — fix the FAIL items before uploading.**
 
@@ -9,7 +9,7 @@ Project: `A`
 |---|---|
 | ❌ FAIL | 5 |
 | ⚠️ WARN | 6 |
-| ✅ PASS | 5 |
+| ✅ PASS | 4 |
 | 📝 MANUAL | 10 |
 
 
@@ -17,16 +17,16 @@ Project: `A`
 
 | Result | Check | Details | How to fix |
 |---|---|---|---|
-| ❌ FAIL | android/key.properties | Missing. Release builds would be signed with the debug key and Play rejects them. | Create an upload key and android/key.properties (see docs/RELEASE.md). |
-| ❌ FAIL | Release signingConfig | The release build type is signed with the DEBUG key. | Run `dart run tool/harden_platforms.dart` or configure signingConfigs.release. |
+| ❌ FAIL | android/key.properties | Missing. Release builds would be signed with the debug key and Play rejects them. | Create an upload key and android/key.properties (see GOOGLE-PLAY-RELEASE.md in the flutter-store-ready skill). |
+| ❌ FAIL | Release signingConfig | The release build type is signed with the DEBUG key. | Run `dart run tool/flutter_store_ready/harden_platforms.dart` or configure signingConfigs.release. |
 
 ## App identity
 
 | Result | Check | Details | How to fix |
 |---|---|---|---|
-| ❌ FAIL | applicationId | "com.example.starter_app" — Play rejects com.example.* and it can never be changed after release. | Choose a permanent reverse-domain id you own, e.g. com.yourcompany.app (also update namespace and the Kotlin package). |
+| ❌ FAIL | applicationId | "com.example.counter_app" — Play rejects com.example.* and it can never be changed after release. | Choose a permanent reverse-domain id you own, e.g. com.yourcompany.app (also update namespace and the Kotlin package). |
 | ⚠️ WARN | versionCode | versionName 1.0.0, versionCode 1. Must be higher than every previous upload (pass --last-version-code to verify). |  |
-| ⚠️ WARN | App name (android:label) | "starter_app" looks like the package name, not a user-facing name. | Set android:label to the real app name (or a @string resource for localization). |
+| ⚠️ WARN | App name (android:label) | "counter_app" looks like the package name, not a user-facing name. | Set android:label to the real app name (or a @string resource for localization). |
 | ❌ FAIL | Launcher icon | Still the default Flutter icon. | Generate icons (e.g. flutter_launcher_icons) incl. adaptive + monochrome. |
 
 ## SDK levels
@@ -41,20 +41,20 @@ Project: `A`
 | Result | Check | Details | How to fix |
 |---|---|---|---|
 | ❌ FAIL | INTERNET permission (main manifest) | Missing: the RELEASE build cannot reach the network (debug works, so this is often missed). | Add <uses-permission android:name="android.permission.INTERNET"/> to app/src/main/AndroidManifest.xml. |
-| ⚠️ WARN | Cleartext HTTP | No network security config. | Run tool/harden_platforms.dart. |
+| ⚠️ WARN | Cleartext HTTP | No network security config. | Run `dart run tool/flutter_store_ready/harden_platforms.dart`. |
 | ⚠️ WARN | Backups | App data (incl. caches) can be copied by adb/cloud backup. | Set allowBackup="false" and add dataExtractionRules. |
 
 ## Permissions & policy
 
 | Result | Check | Details | How to fix |
 |---|---|---|---|
-| ✅ PASS | Sensitive permissions (main manifest) | None declared in the app manifest. Plugins can add more: check the merged manifest (build/app/intermediates/merged_manifests) or Play Console > App bundle explorer. |  |
+| ✅ PASS | Sensitive permissions (main manifest) | None declared in the app manifest. Plugins can add more: build a release once (`flutter build appbundle`) and run this audit again to check the merged manifest. |  |
 
 ## 16 KB page size
 
 | Result | Check | Details | How to fix |
 |---|---|---|---|
-| ✅ PASS | Android Gradle Plugin | AGP 9.3.1. |  |
+| ✅ PASS | Android Gradle Plugin | AGP 9.0.1. |  |
 | 📝 MANUAL | Plugin native libraries | Every plugin with .so files must be 16 KB aligned. | After uploading, open Play Console > App bundle explorer > "Memory page size" — it must say compliant. |
 
 ## Release bundle
@@ -67,8 +67,7 @@ Project: `A`
 
 | Result | Check | Details | How to fix |
 |---|---|---|---|
-| ✅ PASS | Keystore / key.properties not in git | No signing secrets are tracked. |  |
-| ⚠️ WARN | .gitignore | key.properties / *.jks are not ignored at the repo root. | Run tool/harden_platforms.dart. |
+| ⚠️ WARN | Tracked secrets | Not a git repository; could not check tracked files. |  |
 
 ## Play Console (manual)
 

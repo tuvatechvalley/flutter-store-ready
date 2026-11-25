@@ -1,0 +1,36 @@
+name: False alarm
+description: The report flagged something that is not a problem
+title: "[False alarm] <check title>"
+labels: ["false-alarm"]
+body:
+  - type: input
+    id: check
+    attributes:
+      label: Check title (copy from the report)
+      placeholder: "e.g. No raw exception text shown to users"
+    validations:
+      required: true
+  - type: textarea
+    id: finding
+    attributes:
+      label: The finding (copy the lines from PROJECT_REPORT.md)
+      render: markdown
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it is wrong
+      description: e.g. "`e` is a list item here", "this text comes from our admin panel, it is not an error"
+    validations:
+      required: true
+  - type: textarea
+    id: snippet
+    attributes:
+      label: The code it pointed at (remove anything private)
+      render: dart
+  - type: input
+    id: flutter
+    attributes:
+      label: Flutter version
+      placeholder: "flutter --version"

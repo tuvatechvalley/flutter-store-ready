@@ -1,0 +1,93 @@
+{
+  "args": [
+    "--skip-play",
+    "--skip-ios"
+  ],
+  "forbidden": {
+    "blocking": 0,
+    "warnings": 0
+  },
+  "must": [
+    {
+      "title": "Global error handlers",
+      "level": "pass"
+    },
+    {
+      "title": "No raw exception text shown to users",
+      "level": "pass"
+    },
+    {
+      "title": "No status codes or server responses shown to users",
+      "level": "pass"
+    },
+    {
+      "title": "Server error text is not passed straight to users",
+      "level": "pass"
+    },
+    {
+      "title": "Error wording is plain language",
+      "level": "pass"
+    },
+    {
+      "title": "Screens show a loading state while data loads",
+      "level": "pass"
+    },
+    {
+      "title": "Screens tell the user when the server call fails",
+      "level": "pass"
+    },
+    {
+      "title": "Secure token storage",
+      "level": "pass"
+    },
+    {
+      "title": "In-app account deletion",
+      "level": "pass"
+    },
+    {
+      "title": "Privacy policy / terms describe account deletion",
+      "level": "pass"
+    },
+    {
+      "title": "Privacy policy link in the app",
+      "level": "pass"
+    },
+    {
+      "title": "Restore purchases",
+      "level": "pass"
+    },
+    {
+      "title": "Ads: consent before the ad SDK starts",
+      "level": "pass"
+    },
+    {
+      "title": "No development servers in release code",
+      "level": "pass"
+    },
+    {
+      "title": "Back button tested (tabs / nested pages)",
+      "level": "pass"
+    },
+    {
+      "title": "Large-text test (200–300%)",
+      "level": "pass"
+    }
+  ],
+  "must_not": [
+    {
+      "title": "User content: report and block"
+    },
+    {
+      "title": "Theme does not force full-width buttons"
+    },
+    {
+      "title": "Behaves the same for reviewers"
+    },
+    {
+      "title": "Permissions are asked when needed, not at launch"
+    },
+    {
+      "title": "Account rules"
+    }
+  ]
+}

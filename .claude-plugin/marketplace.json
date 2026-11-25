@@ -1,0 +1,36 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/claude-code/refs/heads/main/marketplace/marketplace.schema.json",
+  "name": "flutter-store-ready",
+  "owner": {
+    "name": "Mehmet Akif Akca"
+  },
+  "metadata": {
+    "description": "Production-readiness and store-release audits for Flutter apps"
+  },
+  "plugins": [
+    {
+      "name": "flutter-store-ready",
+      "source": "./",
+      "description": "Build, harden and audit Flutter apps to store-release quality, with Google Play and App Store readiness reports.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Mehmet Akif Akca"
+      },
+      "license": "MIT",
+      "category": "development",
+      "keywords": [
+        "flutter",
+        "dart",
+        "android",
+        "ios",
+        "google-play",
+        "app-store",
+        "release",
+        "audit",
+        "accessibility",
+        "security"
+      ],
+      "repository": "https://github.com/tuvatechvalley/flutter-store-ready"
+    }
+  ]
+}

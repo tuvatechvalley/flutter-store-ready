@@ -1,0 +1,12 @@
+name: platform_bad
+description: Fixture with planted Android / iOS release problems. Not a real app.
+version: 1.0.0+1
+environment:
+  sdk: ^3.8.0
+dependencies:
+  flutter:
+    sdk: flutter
+  google_maps_flutter: ^2.0.0
+  google_mobile_ads: ^5.0.0
+  google_sign_in: ^6.0.0
+  camera: ^0.11.0

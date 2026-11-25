@@ -1,45 +1,33 @@
-# Production readiness report — `starter_app`
+# Production readiness report — `planted`
 
-Generated: 2026-11-25 18:27 · by the flutter-production skill
+Generated: 2026-11-25 23:43 · by the flutter-store-ready skill
 
-## ❌ NOT READY — 10 blocking item(s) must be fixed before release.
+## ❌ NOT READY — 6 blocking item(s) must be fixed before release.
 
 | ❌ Missing (blocking) | ⚠️ Recommended | 📝 Your manual tasks | ✅ Done |
 |:-:|:-:|:-:|:-:|
-| **10** | **29** | **11** | **6** |
+| **6** | **25** | **5** | **4** |
 
 ## ❌ Missing — must fix before release
 
 1. **Global error handlers** _(Error handling)_  
    Missing: FlutterError.onError, PlatformDispatcher.instance.onError. Uncaught errors crash or vanish silently.
    → **Fix:** Add a bootstrap() like templates/starter_app/lib/bootstrap.dart (ERROR-HANDLING.md).
-2. **Text follows the phone's font size** _(Responsive & large text)_  
-   Text size locked/capped at lib/login_screen.dart:14: users who enlarge text to 200% will not see it bigger.
-   → **Fix:** Remove TextScaler.noScaling / textScaleFactor: 1 and caps below 2x (only navigation bars may be capped).
-3. **In-app account deletion** _(Store requirements)_  
+2. **No raw exception text shown to users** _(Error handling)_  
+   Exception text is shown to users (unreadable for them, and it can leak URLs and tokens): lib/screens/orders_screen.dart:14, lib/screens/orders_screen.dart:16
+   → **Fix:** Map the error to a typed failure and show a localized sentence that says what happened and what to do (ERROR-HANDLING.md, "Messages users can understand").
+3. **No status codes or server responses shown to users** _(Error handling)_  
+   HTTP status code / response body shown to users: lib/screens/orders_screen.dart:16, lib/screens/orders_screen.dart:22
+   → **Fix:** Translate the status into a failure type (404 → "not found", 5xx → "something went wrong on our side") and show its localized message. Log the code instead.
+4. **Secure token storage** _(Security)_  
+   Sign-in tokens are kept in plain storage (Hive / SharedPreferences / file, no encryption) in lib/api.dart. Anyone with a backup, a rooted phone or a stolen unlocked device can copy them and use the account.
+   → **Fix:** Store tokens only with flutter_secure_storage (Keychain / Keystore), or open the Hive box with an encryptionCipher whose key lives in secure storage (SECURITY.md).
+5. **In-app account deletion** _(Store requirements)_  
    The app has accounts but no account deletion (required by Google Play and the App Store).
    → **Fix:** Add "Delete account" in settings: backend call + wipe local data; also publish a web deletion URL.
-4. **Default counter app** _(Template leftovers)_  
-   lib/main.dart is still the `flutter create` counter demo.
-   → **Fix:** Replace it with the real app (or install the starter: scripts/install.dart --starter).
-5. **Tests** _(Code health)_  
+6. **Tests** _(Code health)_  
    0 test file(s).
    → **Fix:** Add unit, widget and responsive tests.
-6. **android/key.properties** _(Google Play · Signing)_  
-   Missing. Release builds would be signed with the debug key and Play rejects them.
-   → **Fix:** Create an upload key and android/key.properties (see docs/RELEASE.md).
-7. **Release signingConfig** _(Google Play · Signing)_  
-   The release build type is signed with the DEBUG key.
-   → **Fix:** Run `dart run tool/harden_platforms.dart` or configure signingConfigs.release.
-8. **applicationId** _(Google Play · App identity)_  
-   "com.example.starter_app" — Play rejects com.example.* and it can never be changed after release.
-   → **Fix:** Choose a permanent reverse-domain id you own, e.g. com.yourcompany.app (also update namespace and the Kotlin package).
-9. **Launcher icon** _(Google Play · App identity)_  
-   Still the default Flutter icon.
-   → **Fix:** Generate icons (e.g. flutter_launcher_icons) incl. adaptive + monochrome.
-10. **INTERNET permission (main manifest)** _(Google Play · Manifest & security)_  
-   Missing: the RELEASE build cannot reach the network (debug works, so this is often missed).
-   → **Fix:** Add <uses-permission android:name="android.permission.INTERNET"/> to app/src/main/AndroidManifest.xml.
 
 ## ⚠️ Recommended
 
@@ -49,33 +37,33 @@ Generated: 2026-11-25 18:27 · by the flutter-production skill
 2. **Crash reporting** _(Error handling)_  
    No crash reporting: you will not know when the app crashes for users.
    → **Fix:** Add sentry_flutter or firebase_crashlytics.
-3. **No raw error text shown to users** _(Error handling)_  
-   Raw exception text in the UI (can leak URLs/tokens, confuses users): lib/login_screen.dart:15
-   → **Fix:** Map errors to typed failures and show a localized message (ERROR-HANDLING.md).
-4. **Loading / error / empty states** _(Error handling)_  
-   Error state not handled: lib/login_screen.dart (FutureBuilder/StreamBuilder without hasError)
-   → **Fix:** Every data screen needs loading, error + retry, empty and data states.
-5. **Secure token storage** _(Security)_  
-   The app handles sign-in but has no secure storage dependency: tokens may end up in plain files/SharedPreferences.
-   → **Fix:** Store tokens only with flutter_secure_storage (SECURITY.md).
-6. **Certificate pinning** _(Security)_  
+3. **Screens show a loading state while data loads** _(Error handling)_  
+   These screens fetch data when they open but have no loading indicator, so the user sees a blank or half-empty page: lib/screens/stock_screen.dart
+   → **Fix:** Show a progress indicator or skeleton until the first data arrives (ERROR-HANDLING.md, "Four states").
+4. **Screens tell the user when the server call fails** _(Error handling)_  
+   These screens call the server but show nothing when it fails (the page stays empty or the button seems to do nothing): lib/screens/stock_screen.dart
+   → **Fix:** Show a friendly message with "Try again"; never swallow the error silently.
+5. **Server error text is not passed straight to users** _(Error handling)_  
+   Text from the server response is shown as-is (often English, technical, or not in the user's language): lib/screens/orders_screen.dart:22
+   → **Fix:** Show your own localized message chosen by an error code from the server. Server text is acceptable only for field validation the backend already localizes.
+6. **Error wording is plain language** _(Error handling)_  
+   Developer wording in user-facing text: lib/screens/orders_screen.dart:21 ("Internal Server Error")
+   → **Fix:** Rewrite for a non-technical reader: what happened + what to do next ("Could not connect. Check your internet and try again.").
+7. **Certificate pinning** _(Security)_  
    No certificate pinning: a malicious Wi-Fi or installed CA can read API traffic.
    → **Fix:** Add SPKI pinning with a backup pin (templates/starter_app/lib/core/network/certificate_pinner.dart).
-7. **Network timeouts** _(Security)_  
+8. **Network timeouts** _(Security)_  
    No request timeouts found: a dead network can hang screens forever.
    → **Fix:** Set connect/receive timeouts on the HTTP client.
-8. **No raw print logging** _(Security)_  
+9. **No raw print logging** _(Security)_  
    1 print/debugPrint call(s): logs can leak tokens and personal data on devices.
    → **Fix:** Use one logger that redacts secrets and is silent in release.
-9. **Screens covered by widget tests** _(Responsive & large text)_  
-   2/2 screens never rendered in a test: `LoginScreen` (lib/login_screen.dart), `MyHomePage` (lib/main.dart)
+10. **Screens covered by widget tests** _(Responsive & large text)_  
+   3/3 screens never rendered in a test: `ChatScreen` (lib/screens/chat_screen.dart), `OrdersScreen` (lib/screens/orders_screen.dart), `StockScreen` (lib/screens/stock_screen.dart)
    → **Fix:** Add them to a responsive matrix test (5 sizes × 100–300% text × locales), see RESPONSIVE-AND-LARGE-TEXT.md.
-10. **Large-text test (200–300%)** _(Responsive & large text)_  
+11. **Large-text test (200–300%)** _(Responsive & large text)_  
    No test renders the app with enlarged text, so overflow at 200% font size goes unnoticed.
    → **Fix:** Copy templates/starter_app/test/responsive_test.dart and large_text_test.dart.
-11. **No fixed heights around text** _(Responsive & large text)_  
-   Text in a fixed height is cut off with large text: lib/login_screen.dart:15
-   → **Fix:** Drop the height or compute it with MediaQuery.textScalerOf(context).scale(x).
 12. **Safe areas (notch, gesture bar)** _(Responsive & large text)_  
    No SafeArea: content can hide under the notch or gesture bar.
    → **Fix:** Wrap screen bodies with SafeArea (or use Scaffold app bars).
@@ -88,84 +76,61 @@ Generated: 2026-11-25 18:27 · by the flutter-production skill
 15. **Localization** _(Store requirements)_  
    No localization: dates, numbers and system widgets stay in English.
    → **Fix:** Add localization delegates and supportedLocales.
-16. **App title** _(Template leftovers)_  
-   MaterialApp title is still "Flutter Demo" (shown in the task switcher).
-   → **Fix:** Set the real app name.
-17. **pubspec description** _(Template leftovers)_  
-   Still the template description.
-   → **Fix:** Describe your app in pubspec.yaml.
-18. **Deprecated Material import** _(Code health)_  
-   package:flutter/material.dart is deprecated since Flutter 3.47 (1 file(s)).
-   → **Fix:** Run `flutter pub add material_ui` and `dart fix --apply` (on Flutter >= 3.47).
-19. **Strict static analysis** _(Code health)_  
+16. **Restore purchases** _(Store policy)_  
+   In-app purchases (in_app_purchase) but no restore call found. Apple rejects apps whose non-consumable purchases or subscriptions cannot be restored (guideline 3.1.1). Not needed when everything is consumable.
+   → **Fix:** Add a visible "Restore purchases" button on the paywall or in settings that calls restorePurchases().
+17. **Ads: consent before the ad SDK starts** _(Store policy)_  
+   Ad SDK (google_mobile_ads) with no consent flow in the code. For users in the EEA, the UK and Switzerland Google requires consent collected by a certified consent platform (e.g. its UMP SDK) before ads are requested; without it ads are limited or not served there, and it is a policy violation.
+   → **Fix:** Run the UMP flow (ConsentInformation.requestConsentInfoUpdate → load and show the form) before MobileAds.initialize(). On iOS show the tracking prompt before as well.
+18. **User content: report and block** _(Store policy)_  
+   The app seems to show content written by users (lib/screens/chat_screen.dart) but has no report or block action. Both stores require: a way to report content, a way to block users, filtering of objectionable material, and a published contact (Apple guideline 1.2, Google Play user-generated content policy).
+   → **Fix:** Add "Report" on every message / post / profile and "Block user"; act on reports quickly. Ignore this if users only see their own content.
+19. **No development servers in release code** _(Store policy)_  
+   Local or staging addresses that are not limited to debug builds: lib/api.dart:2
+   → **Fix:** Read the address from the build configuration, or guard it with kReleaseMode / kDebugMode.
+20. **Behaves the same for reviewers** _(Store policy)_  
+   Code that detects review / TestFlight / sandbox: lib/store_check.dart:2. Showing reviewers something different from real users is grounds for removal (Apple guideline 2.3.1).
+   → **Fix:** Remove it, unless it only selects the sandbox purchase environment.
+21. **Back button tested (tabs / nested pages)** _(Navigation & permissions)_  
+   The app has tabs or nested navigation and no test presses the Android back button. Typical bug: back on a second-level page closes the app instead of going up.
+   → **Fix:** Add a widget test: open a nested page, call `tester.binding.handlePopRoute()`, expect the parent page (NAVIGATION-AND-LIFECYCLE.md).
+22. **Permissions are asked when needed, not at launch** _(Navigation & permissions)_  
+   A permission is requested while the app starts (lib/main.dart). Users deny prompts they do not understand, and App Review rejects apps that ask before the feature is used.
+   → **Fix:** Ask at the moment the feature is used, after a sentence that explains why — and only for the users / roles that need it.
+23. **Theme does not force full-width buttons** _(Responsive & large text)_  
+   The theme makes every button as wide as possible (lib/main.dart:21). A button placed next to a title in a Row then takes the whole row and the title wraps letter by letter, worst with large text.
+   → **Fix:** Keep the theme at a minimum height only (e.g. Size(64, 48)); make a button full-width where it is used (SizedBox(width: double.infinity) or Expanded).
+24. **Strict static analysis** _(Code health)_  
    Only default lints: many crash-prone patterns (dynamic calls, unawaited futures) go unnoticed.
    → **Fix:** Use templates/starter_app/analysis_options.yaml (strict-casts, unawaited_futures as error...).
-20. **pubspec.lock committed** _(Code health)_  
-   pubspec.lock is not committed: builds are not reproducible.
-   → **Fix:** Commit pubspec.lock (apps should).
-21. **CI pipeline** _(Code health)_  
+25. **CI pipeline** _(Code health)_  
    No CI: nothing stops a broken build from shipping.
    → **Fix:** Copy templates/starter_app/.github/workflows/ci.yml.
-22. **Export compliance key** _(iOS)_  
-   Missing: App Store Connect asks the export-compliance question on every upload.
-   → **Fix:** Add ITSAppUsesNonExemptEncryption (false if you only use HTTPS / OS crypto).
-23. **Privacy manifest** _(iOS)_  
-   No app privacy manifest (App Store requires declaring "required reason" APIs).
-   → **Fix:** Add ios/Runner/PrivacyInfo.xcprivacy in Xcode (File > New > App Privacy).
-24. **versionCode** _(Google Play · App identity)_  
-   versionName 1.0.0, versionCode 1. Must be higher than every previous upload (pass --last-version-code to verify).
-25. **App name (android:label)** _(Google Play · App identity)_  
-   "starter_app" looks like the package name, not a user-facing name.
-   → **Fix:** Set android:label to the real app name (or a @string resource for localization).
-26. **Cleartext HTTP** _(Google Play · Manifest & security)_  
-   No network security config.
-   → **Fix:** Run tool/harden_platforms.dart.
-27. **Backups** _(Google Play · Manifest & security)_  
-   App data (incl. caches) can be copied by adb/cloud backup.
-   → **Fix:** Set allowBackup="false" and add dataExtractionRules.
-28. **App bundle (.aab)** _(Google Play · Release bundle)_  
-   Not built yet (build/app/outputs/bundle/release/app-release.aab).
-   → **Fix:** flutter build appbundle --release --obfuscate --split-debug-info=build/symbols --dart-define-from-file=config/prod.json
-29. **.gitignore** _(Google Play · Secrets)_  
-   key.properties / *.jks are not ignored at the repo root.
-   → **Fix:** Run tool/harden_platforms.dart.
 
 ## 📝 Your manual tasks (outside the code)
 
-1. **Environment config** _(Production config)_  
+1. **Test account for store review (the app has sign-in)** _(Store requirements)_  
+   Create a dedicated reviewer account and give it to both stores: Google Play Console > App content > App access ("All or some functionality is restricted") and App Store Connect > App Review Information > Sign-in required. It must never expire, already contain sample data, need no SMS / e-mail code (or explain how to get one), and work from abroad. Keep the backend running during review. A missing or broken reviewer login is one of the most common rejections on both stores.
+   → **Fix:** If parts of the app work without an account, say so in the review notes. If the app sells subscriptions, say how the reviewer reaches the paywall.
+2. **Paywall tells the user what they pay** _(Store policy)_  
+   Open the purchase screen and check, before the buy button: the price from the store (not hard-coded), what the user gets, for subscriptions the billing period, that it renews automatically and how to cancel, trial length and the price after it, and working links to the Terms of use (EULA) and the Privacy policy. The total billed amount must be at least as prominent as a per-month figure.
+   → **Fix:** Missing terms or links on the paywall are a routine rejection on both stores.
+3. **Ads: placement** _(Store policy)_  
+   Check on a device: no full-screen ad at app launch or when leaving the app, interstitials only at natural breaks and closable, rewarded ads only when the user chooses them, no ads that look like app buttons, and none in apps for children unless the SDK is certified for families.
+4. **Data your SDKs collect (declare it in both stores)** _(Store policy)_  
+   From pubspec.yaml, at least: your own sign-in → e-mail address, user IDs (plus every profile field you store); google_mobile_ads → advertising ID, app interactions, approximate location, diagnostics — shared with Google for advertising; geolocator → precise or approximate location; in_app_purchase → purchase history. Add what the app itself sends to your server (account details, form fields, content). The Play Data safety form, Apple App Privacy labels and your privacy policy must all say the same thing.
+   → **Fix:** A form that says "no data collected" while an analytics, ads or crash SDK is installed is a common reason for removal.
+5. **Environment config** _(Production config)_  
    No config/ folder. Make sure release builds point to the production API over https and contain no secrets.
-2. **Plugin native libraries** _(Google Play · 16 KB page size)_  
-   Every plugin with .so files must be 16 KB aligned.
-   → **Fix:** After uploading, open Play Console > App bundle explorer > "Memory page size" — it must say compliant.
-3. **Play App Signing** _(Google Play · Play Console (manual))_  
-   Enrolled (default for new apps). Upload key ≠ app signing key; keep the upload key backed up.
-4. **Privacy policy** _(Google Play · Play Console (manual))_  
-   Public HTTPS URL in Store listing and inside the app (Settings/About).
-5. **Data safety form** _(Google Play · Play Console (manual))_  
-   Declare every data type collected by you AND SDKs (e.g. Sentry crash data, device ids).
-6. **Account deletion** _(Google Play · Play Console (manual))_  
-   If users can create accounts: in-app deletion path + public web deletion URL in the Data safety form.
-7. **Content rating & target audience** _(Google Play · Play Console (manual))_  
-   Complete the questionnaire; children in audience triggers the Families policy.
-8. **Ads declaration** _(Google Play · Play Console (manual))_  
-   Declare whether the app contains ads.
-9. **Closed testing (new personal accounts)** _(Google Play · Play Console (manual))_  
-   Personal accounts created after 13 Nov 2023: closed test with >= 12 testers opted in for 14 continuous days before production access.
-10. **Store listing assets** _(Google Play · Play Console (manual))_  
-   512x512 icon, 1024x500 feature graphic, >= 2 phone screenshots (+ 7"/10" tablet screenshots for tablet visibility).
-11. **Pre-launch report** _(Google Play · Play Console (manual))_  
-   Upload to internal testing first; fix crashes/accessibility/security issues it reports.
 
 ## ✅ Done
 
+- **Loading / error / empty states** _(Error handling)_ — Async widgets handle the error state.
+- **Text follows the phone's font size** _(Responsive & large text)_ — Text size is never locked or capped below 2x.
+- **No fixed heights around text** _(Responsive & large text)_ — No fixed-height boxes around text found.
 - **TODO / FIXME** _(Code health)_ — None in lib/.
-- **targetSdk** _(Google Play · SDK levels)_ — targetSdk 36 (Play requires >= 36 for new apps and updates).
-- **minSdk** _(Google Play · SDK levels)_ — minSdk 24.
-- **Sensitive permissions (main manifest)** _(Google Play · Permissions & policy)_ — None declared in the app manifest. Plugins can add more: check the merged manifest (build/app/intermediates/merged_manifests) or Play Console > App bundle explorer.
-- **Android Gradle Plugin** _(Google Play · 16 KB page size)_ — AGP 9.3.1.
-- **Keystore / key.properties not in git** _(Google Play · Secrets)_ — No signing secrets are tracked.
 
-> Quality gates skipped in this example (generated without the Flutter SDK). Normally format, analyze and tests run here.
+> Quality gates skipped (`--skip-gates`).
 
 ---
-Google Play details: `PLAY_READINESS.md` (same folder).
+Store details (same folder): `PLAY_READINESS.md` (Google Play), `APP_STORE_READINESS.md` (App Store).
