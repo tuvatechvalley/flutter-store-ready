@@ -65,4 +65,5 @@ Keep `build/symbols/` privately (upload to your crash reporter) — obfuscated s
 | Permissions added by plugins | After a release build the audit reads the merged manifest and lists permissions you never wrote (AD_ID, FOREGROUND_SERVICE, WAKE_LOCK …). Remove unused ones with `tools:node="remove"`; declare the rest |
 | Advertising ID | If the shipped manifest has `AD_ID`: App content > Advertising ID = Yes, and "Device or other IDs" in Data safety |
 | Release fingerprints | Play re-signs with the app signing key: register its SHA-1 / SHA-256 (Play Console > App integrity) plus the upload key in Firebase, Maps key restrictions, the Google sign-in OAuth client, assetlinks.json. See `STORE-POLICIES.md`, section 8 |
+| Cleartext HTTP | `usesCleartextTraffic="true"` in the main manifest lets the release build send unencrypted traffic and is a red flag in review. Allow plain HTTP only in the debug-only network config (`NAVIGATION-AND-LIFECYCLE.md`, section 6) |
 | Sensitive permissions | SMS/Call log, QUERY_ALL_PACKAGES, MANAGE_EXTERNAL_STORAGE, background location, READ_MEDIA_*, foreground service types… need declarations; prefer the photo picker |

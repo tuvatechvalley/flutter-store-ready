@@ -2,6 +2,17 @@
 
 Versions follow [semantic versioning](https://semver.org). While the version is 0.x the checks and their severities can still change between releases.
 
+## Unreleased
+
+### Commands
+- The repository now has four skills, split by task: `flutter-store-ready` (build and harden Flutter apps), `store-review` (read-only pre-submission audit), `store-forms` (Data safety / App Privacy and other console answers), `store-rejection` (cause, fix and reply for a rejection). The audit workflow moved out of `flutter-store-ready` into `store-review`.
+- The three store skills also handle native Android / iOS, React Native and Expo projects as a checklist review; automated checks remain Flutter-only.
+- Tried by fresh agents on four real apps (Flutter ×3, Expo ×1) with read-only rules; the projects were verified unchanged afterwards. Fixed from what they hit: report location in projects where `build/` is not git-ignored, one severity definition, a "changes to the automated findings" section, an Expo key map and prebuild warning, a children's-apps section (`STORE-POLICIES.md` §9, previously a broken reference), per-platform SDK answers, more data-declaration rows (own analytics, push tokens, age band, public nicknames, third-party names, server IP logs), console-dependent rejections (ask first, branches), "no reply needed" for Play form fixes, a subscription-rejection row for apps that sell none.
+
+### Audit
+- Play: a bundle older than the source code is a warning ("not the current code"); the certificate owner's name is no longer printed.
+- `in_app_purchase` is listed as collected purchase history only when the app or its server records purchases.
+
 ## 0.1.0 — internal preview (2026-11-25)
 
 First version tried on real apps.

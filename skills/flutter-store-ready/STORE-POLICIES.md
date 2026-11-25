@@ -62,3 +62,14 @@ Plugins also add **permissions** you never wrote. After a release build the audi
 Google Play re-signs the app with the **app signing key**. Its SHA-1 / SHA-256 differ from the upload key and from debug. Register all three wherever a Google service checks them: Firebase project settings, API key restrictions (Maps), the OAuth client (Google sign-in), `assetlinks.json` (app links). Symptoms when one is missing: grey map, Google sign-in fails, links open the browser — only in the build downloaded from Play.
 
 Maps also needs the key in the app: `com.google.android.geo.API_KEY` in the Android manifest and `GMSServices.provideAPIKey` in the iOS AppDelegate.
+
+## 9. Apps that children use
+
+Decide the audience on facts, not intent: an alphabet course, cartoons, simple games or a school level in the content can make an app "appeal to children" even if it was built for adults. Read the current rules before answering: Google Play Families policy, Apple guidelines 1.3 (Kids category) and 5.1.4.
+
+- **Google Play.** The ages chosen in Play Console → Target audience and content decide the rules. When under-13 is included, the app falls under the Families policy: only ad SDKs that are self-certified for families; every ad request marked child-directed (`RequestConfiguration(tagForChildDirectedTreatment: TagForChildDirectedTreatment.yes)` in `google_mobile_ads`), which turns personalized ads off; no advertising ID for children (remove `com.google.android.gms.permission.AD_ID` with `tools:node="remove"` when the whole audience is children); no precise location or device identifiers collected from children; a privacy policy that covers children.
+- **Mixed audience.** A neutral age question (not one that invites lying), then child-directed or under-age-of-consent settings only for the users who need them (`tagForUnderAgeOfConsent` for users under the age of consent in the EEA).
+- **Apple.** The Kids category is opt-in; apps in it must not include third-party advertising or analytics (narrow exceptions exist) and need parental gates in front of links and purchases. An app outside the Kids category that children still use must follow 5.1.4 for any data it collects from them.
+- **Content rating and ads.** Ad content must suit the youngest user: set `maxAdContentRating` (G for general audiences) and block sensitive categories in the AdMob console.
+
+Blocking under-13 users at sign-up (and on the server) keeps an app out of the Families policy only if its content and listing do not target children.

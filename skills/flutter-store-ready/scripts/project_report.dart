@@ -1212,8 +1212,10 @@ const _sdkData = <String, String>{
   'record': 'voice or sound recordings, if they are uploaded',
   'flutter_contacts': 'contacts, if they leave the device',
   'contacts_service': 'contacts, if they leave the device',
-  'in_app_purchase': 'purchase history',
-  'purchases_flutter': 'purchase history, user IDs',
+  'in_app_purchase':
+      'purchase history — only if your app or server records purchases (a flag kept on the device is not collected)',
+  'purchases_flutter':
+      'purchase history, user IDs (RevenueCat stores purchases on its servers)',
   'flutter_stripe': 'payment info (processed by Stripe), purchase history',
   'device_info_plus': 'device or other IDs, if they are sent to your server',
   'health': 'health and fitness data',
@@ -1862,7 +1864,7 @@ Future<void> _runPlayAudit(String outDir, String? lastVersionCode) async {
       'Android project',
       Level.fail,
       'android/ does not exist.',
-      'Run `flutter create --platforms=android,ios .` then scripts/harden_platforms.dart.',
+      'Run `flutter create --platforms=android,ios .`, then `harden_platforms.dart` from the flutter-store-ready skill.',
     );
   }
   final list = (jsonDecode(file.readAsStringSync()) as List)

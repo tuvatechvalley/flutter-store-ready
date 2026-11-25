@@ -11,15 +11,30 @@ An agent skill in the open [Agent Skills](https://agentskills.io) format — for
 
 > **Status: 0.1.0, internal preview.** Checks and their severities can still change. Most checks match text patterns, so they can flag correct code and miss real problems: please report both with the issue templates ("False alarm", "Missed problem"). See [CHANGELOG.md](CHANGELOG.md).
 
+## Commands
+
+Four skills in one repository. Each one is a command: `/store-review` in Claude Code; in other agents call it by name ("use the store-review skill") or just describe the task. They are split by **task**, not by framework — each one recognizes the project type itself.
+
+| Command | What it does | When |
+|---|---|---|
+| `/flutter-store-ready` | Creates a new Flutter app from the production starter, or fixes and hardens an existing one, following every rule in the guides | Starting an app; making it production-ready; fixing what a review found |
+| `/store-review` | Read-only audit before you upload: what Google Play or App Review will reject, what is risky, what is left in the consoles → `PROJECT_REPORT.md` | Before every submission |
+| `/store-forms` | Drafts the Data safety, Advertising ID, App access, target audience and Apple App Privacy / export compliance answers from what the code and its SDKs actually do, and checks them against the privacy policy → `STORE_FORMS.md` | First release; after adding or removing an SDK |
+| `/store-rejection` | Takes a rejection or policy e-mail, finds the cause in the project, says fix / reply / update a form / appeal, drafts the reply or appeal → `REJECTION_RESPONSE.md` | When Apple or Google says no |
+
+Nothing is sent and no console is changed by any of them: replies, appeals and form answers are drafts you submit yourself.
+
+Frameworks: everything works fully for **Flutter**. `/store-review`, `/store-forms` and `/store-rejection` also handle native Android / iOS, React Native and Expo projects as a guided checklist review (no automated checks yet — the report says so).
+
 ## Install
 
 ```sh
-npx skills add https://github.com/tuvatechvalley/flutter-store-ready --skill flutter-store-ready
+npx skills add https://github.com/tuvatechvalley/flutter-store-ready
 ```
 
-For a user-level install (all projects), add `--global`. Run `npx skills --help` for agent selection.
+Installs all four skills; keep them together — the store skills use the scripts and guides in `flutter-store-ready/`. For a user-level install (all projects), add `--global`. Run `npx skills --help` for agent selection.
 
-Any agent: the skill is a plain folder (`skills/flutter-store-ready/`: `SKILL.md`, guides, Dart scripts, a template). `npx skills add` puts it where your agent looks for skills. With an agent that has no skill support, tell it: "read `skills/flutter-store-ready/SKILL.md` and follow it" — nothing in it depends on a specific agent, and the scripts run without any agent at all.
+Any agent: each skill is a plain folder (`skills/<name>/SKILL.md` plus guides; `flutter-store-ready/` also holds the Dart scripts and the starter template). `npx skills add` puts them where your agent looks for skills. With an agent that has no skill support, tell it: "read `skills/store-review/SKILL.md` and follow it" — nothing in them depends on a specific agent, and the scripts run without any agent at all.
 
 Claude Code can also install it as a plugin (`.claude-plugin/` holds the manifest): `/plugin marketplace add tuvatechvalley/flutter-store-ready`, then `/plugin install flutter-store-ready`.
 
@@ -28,12 +43,12 @@ Manual install (Claude Code):
 ```sh
 git clone https://github.com/tuvatechvalley/flutter-store-ready
 # macOS / Linux
-cp -r flutter-store-ready/skills/flutter-store-ready ~/.claude/skills/
+cp -r flutter-store-ready/skills/* ~/.claude/skills/
 # Windows (PowerShell)
-Copy-Item -Recurse flutter-store-ready\skills\flutter-store-ready $HOME\.claude\skills\
+Copy-Item -Recurse flutter-store-ready\skills\* $HOME\.claude\skills\
 ```
 
-Requirements: Flutter SDK (the scripts are plain Dart, no packages needed — they run on Windows, macOS and Linux). `keytool` (any JDK / Android Studio's JBR) for keystore checks.
+Requirements: Flutter SDK for the automated checks (the scripts are plain Dart, no packages needed — they run on Windows, macOS and Linux). `keytool` (any JDK / Android Studio's JBR) for keystore checks.
 
 ## Use
 

@@ -155,6 +155,20 @@ Future<void> main(List<String> args) async {
     }
   }
 
+  if (args.isEmpty || args.contains('skills')) {
+    final problems = _checkSkillFiles('$root/skills');
+    checks++;
+    if (problems.isEmpty) {
+      print('PASS  skills');
+    } else {
+      failed++;
+      print('FAIL  skills');
+      for (final p in problems) {
+        print('      - $p');
+      }
+    }
+  }
+
   if (args.isEmpty || args.contains('install')) {
     checks++;
     final problem = await _installMergesWindowsPubspec(scripts);
@@ -229,4 +243,83 @@ Future<String?> _installMergesWindowsPubspec(String scripts) async {
   } finally {
     dir.deleteSync(recursive: true);
   }
+}
+
+/// Every skill folder: a SKILL.md whose front matter follows the Agent Skills
+/// format (name = folder name, a description of at most 1024 characters), and
+/// every file it points to exists — in its own folder, or in the
+/// flutter-store-ready kit (`<kit>/…`) that the store skills share.
+List<String> _checkSkillFiles(String skillsDir) {
+  final problems = <String>[];
+  final kit = '$skillsDir/flutter-store-ready';
+  for (final dir in Directory(skillsDir).listSync().whereType<Directory>()) {
+    final name = dir.path.split(RegExp(r'[\\/]')).last;
+    final skill = File('${dir.path}/SKILL.md');
+    if (!skill.existsSync()) {
+      problems.add('$name: no SKILL.md');
+      continue;
+    }
+    final text = skill.readAsStringSync().replaceAll('\r\n', '\n');
+    final front = RegExp(r'^---\n([\s\S]*?)\n---\n').firstMatch(text)?.group(1);
+    if (front == null) {
+      problems.add('$name: SKILL.md has no front matter');
+      continue;
+    }
+    final declared = RegExp(
+      r'^name:\s*(.+)$',
+      multiLine: true,
+    ).firstMatch(front)?.group(1)?.trim();
+    if (declared != name) {
+      problems.add('$name: front matter name is "$declared"');
+    }
+    if (!RegExp(r'^[a-z0-9]+(-[a-z0-9]+)*$').hasMatch(name) ||
+        name.length > 64) {
+      problems.add('$name: name must be lowercase letters, digits, hyphens');
+    }
+    final description = RegExp(
+      r'^description:\s*(.+)$',
+      multiLine: true,
+    ).firstMatch(front)?.group(1)?.trim();
+    if (description == null || description.isEmpty) {
+      problems.add('$name: no description');
+    } else if (description.length > 1024) {
+      problems.add(
+        '$name: description is ${description.length} chars (max 1024)',
+      );
+    }
+
+    // File references in every Markdown file of the skill.
+    for (final md in dir.listSync().whereType<File>().where(
+      (f) => f.path.endsWith('.md'),
+    )) {
+      final mdName = md.path.split(RegExp(r'[\\/]')).last;
+      final body = md.readAsStringSync();
+      for (final m in RegExp(r'<kit>/([\w./-]+)').allMatches(body)) {
+        final target = m.group(1)!.replaceAll(RegExp(r'[.,;:]+$'), '');
+        if (!File('$kit/$target').existsSync() &&
+            !Directory('$kit/$target').existsSync()) {
+          problems.add('$name/$mdName: <kit>/$target does not exist');
+        }
+      }
+      for (final m in RegExp(r'`([A-Z][A-Z0-9-]+\.md)`').allMatches(body)) {
+        final target = m.group(1)!;
+        if (!File('${dir.path}/$target').existsSync() &&
+            !File('$kit/$target').existsSync() &&
+            !const {
+              'PROJECT_REPORT.md',
+              'PLAY_READINESS.md',
+              'APP_STORE_READINESS.md',
+              'STORE_FORMS.md',
+              'REJECTION_RESPONSE.md',
+              'SKILL.md',
+              'CHANGELOG.md',
+              'AGENTS.md',
+              'CLAUDE.md',
+            }.contains(target)) {
+          problems.add('$name/$mdName: `$target` does not exist');
+        }
+      }
+    }
+  }
+  return problems;
 }

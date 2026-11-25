@@ -95,7 +95,7 @@ Future<void> main(List<String> args) async {
       'android/ folder',
       Status.fail,
       'android/ does not exist.',
-      'Run `flutter create --platforms=android .` then `dart run tool/flutter_store_ready/harden_platforms.dart`.',
+      'Run `flutter create --platforms=android .` then `harden_platforms.dart` from the flutter-store-ready skill (`tool/flutter_store_ready/` once installed).',
     );
     _finish(reportPath, jsonPath, args.contains('--no-fail'));
     return;
@@ -170,7 +170,7 @@ Future<void> _checkSigning(String gradle, Map<String, String>? props) async {
       'Release signingConfig',
       Status.fail,
       'The release build type is signed with the DEBUG key.',
-      'Run `dart run tool/flutter_store_ready/harden_platforms.dart` or configure signingConfigs.release.',
+      'Run `harden_platforms.dart` from the flutter-store-ready skill (`tool/flutter_store_ready/` once installed) or configure signingConfigs.release.',
     );
   } else {
     _add(
@@ -544,7 +544,7 @@ void _checkManifest(String manifest) {
               ? 'Blocked via network security config.'
               : 'No network security config.'),
     cleartext || !nsc
-        ? 'Run `dart run tool/flutter_store_ready/harden_platforms.dart`.'
+        ? 'Run `harden_platforms.dart` from the flutter-store-ready skill (`tool/flutter_store_ready/` once installed).'
         : null,
   );
 
@@ -854,11 +854,29 @@ Future<void> _checkBundle(String aabPath) async {
     return;
   }
   final mb = aab.lengthSync() / (1024 * 1024);
+  // A bundle older than the code is not the app the report describes.
+  final built = aab.lastModifiedSync();
+  final newer = [
+    for (final dir in ['lib', 'android/app/src/main'])
+      if (Directory('$_root/$dir').existsSync())
+        ...Directory('$_root/$dir')
+            .listSync(recursive: true)
+            .whereType<File>()
+            .where((f) => f.lastModifiedSync().isAfter(built)),
+    if (File('$_root/pubspec.yaml').lastModifiedSync().isAfter(built))
+      File('$_root/pubspec.yaml'),
+  ];
+  final day = built.toIso8601String().substring(0, 10);
   _add(
     area,
     'App bundle (.aab)',
-    Status.pass,
-    '${_rel(aab.path)} (${mb.toStringAsFixed(1)} MB).',
+    newer.isEmpty ? Status.pass : Status.warn,
+    newer.isEmpty
+        ? '${_rel(aab.path)} (${mb.toStringAsFixed(1)} MB, built $day).'
+        : '${_rel(aab.path)} was built $day; ${newer.length} source file(s) changed since (e.g. ${_rel(newer.first.path)}). It is not the current code.',
+    newer.isEmpty
+        ? null
+        : 'Rebuild before uploading; the checks below (signature) describe the old bundle.',
   );
   final keytool = await _which('keytool');
   if (keytool == null) return;
@@ -875,8 +893,14 @@ Future<void> _checkBundle(String aabPath) async {
       'Create android/key.properties and rebuild.',
     );
   } else {
-    final owner = RegExp(r'Owner:\s*(.+)').firstMatch(out)?.group(1)?.trim();
-    _add(area, 'Bundle signature', Status.pass, 'Signed by: $owner');
+    // The certificate owner is often a person's name: reports get shared, so
+    // it is not repeated here.
+    _add(
+      area,
+      'Bundle signature',
+      Status.pass,
+      'Signed with a release (non-debug) certificate.',
+    );
   }
   if (!Directory('$_root/build/symbols').existsSync()) {
     _add(
@@ -945,7 +969,7 @@ void _checkSecretsInRepo() {
       '.gitignore',
       Status.warn,
       'Not git-ignored: ${notIgnored.join(', ')} (a keystore placed there would be committed by `git add .`).',
-      'Run `dart run tool/flutter_store_ready/harden_platforms.dart`.',
+      'Run `harden_platforms.dart` from the flutter-store-ready skill (`tool/flutter_store_ready/` once installed).',
     );
   }
 }

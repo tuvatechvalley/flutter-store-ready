@@ -11,7 +11,7 @@
     {
       "name": "flutter-store-ready",
       "source": "./",
-      "description": "Build, harden and audit Flutter apps to store-release quality, with Google Play and App Store readiness reports.",
+      "description": "Store-release toolkit for mobile apps: /flutter-store-ready builds and hardens Flutter apps; /store-review audits before submission; /store-forms drafts Data safety and App Privacy answers; /store-rejection turns an Apple or Google rejection into a fix and a reply. Full automation for Flutter, checklist reviews for native Android/iOS, React Native and Expo.",
       "version": "0.1.0",
       "author": {
         "name": "Mehmet Akif Akca"
@@ -28,7 +28,11 @@
         "release",
         "audit",
         "accessibility",
-        "security"
+        "security",
+        "app-review",
+        "data-safety",
+        "app-privacy",
+        "rejection"
       ],
       "repository": "https://github.com/tuvatechvalley/flutter-store-ready"
     }

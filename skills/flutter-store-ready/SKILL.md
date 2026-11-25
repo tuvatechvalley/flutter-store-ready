@@ -1,6 +1,6 @@
 ---
 name: flutter-store-ready
-description: Build, harden and audit Flutter mobile apps to store-release quality — global error handling with user-friendly error messages, security (OWASP MASVS), responsive layouts that survive 200–300% system font size, a Google Play readiness check (keystore, signing, targetSdk, permissions) and an App Store / iOS readiness check (bundle id, signing team, icon, Info.plist permissions, privacy manifest, review guidelines). Use when creating a Flutter app, making an existing one production-ready, auditing it, or preparing a Google Play or App Store release. Always ends with a written report of what is done and what is missing.
+description: Build and harden Flutter mobile apps to store-release quality — global error handling with user-friendly error messages, security (OWASP MASVS), responsive layouts that survive 200–300% system font size, navigation and permission pitfalls, store policies, Google Play signing (keystore, key.properties, targetSdk) and App Store setup (bundle id, signing team, Info.plist, privacy manifest). Use when creating a Flutter app, making an existing one production-ready or fixing what an audit found, or preparing a release. For a read-only audit use store-review; for store forms store-forms; for a rejection store-rejection. Always ends with a written report of what is done and what is missing.
 ---
 
 # Flutter store-ready
@@ -60,11 +60,9 @@ Pick the one matching the request. Do not skip the final report.
 3. Show the user the blocking items and the plan; fix in this order: crashes & global error handling → security → large text / responsive → store requirements → leftovers. Port pieces from `templates/starter_app/lib/core/` instead of reinventing them.
 4. Re-run verify until no ❌ remains (or the user accepts the rest). Final report.
 
-### C. Audit only ("check my app", "is it ready for Play / the App Store?", "keystore var mı?")
+### C. Audit only → the `store-review` skill
 
-1. `dart run <skill>/scripts/project_report.dart .` (add `--last-version-code N` / `--last-build-number N` if known). Both stores are audited when `android/` and `ios/` exist; if the user ships on one store only, pass `--skip-ios` or `--skip-play` and say so in the summary.
-2. Also read the code for what scripts cannot judge (see `AUDIT-AND-REPORTING.md`) and add those findings with file:line.
-3. Deliver the report. Do not change code unless asked.
+A read-only audit ("check my app", "is it ready for Play / the App Store?", "keystore var mı?") is the job of the **store-review** skill in this repository: follow it. Store forms (Data safety, App Privacy) → **store-forms**; a rejection from Apple or Google → **store-rejection**. All three use this skill's scripts and guides.
 
 ### D. Release preparation
 
