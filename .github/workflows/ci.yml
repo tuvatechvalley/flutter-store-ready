@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  scripts:
+    name: Scripts analyze cleanly
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+      - name: Analyze scripts (no packages needed)
+        working-directory: skills/flutter-production/scripts
+        run: |
+          printf 'name: scripts\nenvironment:\n  sdk: ^3.8.0\n' > pubspec.yaml
+          dart pub get
+          dart format --output=none --set-exit-if-changed .
+          dart analyze --fatal-infos .
+
+  starter:
+    name: install --starter into a fresh app, then all gates
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Create app and install the skill
+        shell: bash
+        run: |
+          flutter create --org com.ci.example --platforms=android,ios ci_app
+          dart run skills/flutter-production/scripts/install.dart ci_app --starter
+      - name: Gates + report
+        shell: bash
+        working-directory: ci_app
+        run: |
+          flutter pub get
+          dart format --output=none --set-exit-if-changed lib test
+          flutter analyze --fatal-infos
+          flutter test
+          dart run tool/flutter_production/project_report.dart . --gates-passed --no-fail
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: report-${{ matrix.os }}
+          path: ci_app/build/reports/flutter-production/

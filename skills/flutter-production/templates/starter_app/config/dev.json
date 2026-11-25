@@ -1,0 +1,8 @@
+{
+  "FLAVOR": "dev",
+  "API_BASE_URL": "https://api.example.com",
+  "USE_MOCK_API": true,
+  "SENTRY_DSN": "",
+  "PRIVACY_POLICY_URL": "https://example.com/privacy",
+  "CERT_PINS": ""
+}

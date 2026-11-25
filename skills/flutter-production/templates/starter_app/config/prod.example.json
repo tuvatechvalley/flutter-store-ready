@@ -1,0 +1,8 @@
+{
+  "FLAVOR": "prod",
+  "API_BASE_URL": "https://api.yourdomain.com",
+  "USE_MOCK_API": false,
+  "SENTRY_DSN": "https://<public-key>@o0.ingest.sentry.io/0",
+  "PRIVACY_POLICY_URL": "https://yourdomain.com/privacy",
+  "CERT_PINS": "<current-key-spki-sha256-base64>,<backup-key-spki-sha256-base64>"
+}

@@ -1,0 +1,41 @@
+# Flutter / Dart
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+coverage/
+*.iml
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+*.log
+
+# Generated native build output
+**/android/.gradle/
+**/android/local.properties
+**/android/**/GeneratedPluginRegistrant.*
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/Pods/
+**/ios/.symlinks/
+
+# Signing secrets (never commit)
+android/key.properties
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+*.pem
+
+# Local / production configuration with private values
+config/prod.json
+config/*.local.json
+.env
+.env.*
+
+# Obfuscation symbols (keep privately, needed to read crash stacks)
+build/symbols/

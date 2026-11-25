@@ -1,0 +1,21 @@
+# Dart / Flutter
+.dart_tool/
+.packages
+build/
+coverage/
+pubspec.lock
+*.iml
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Never commit signing material or local secrets
+*.jks
+*.keystore
+*.p12
+*.pem
+key.properties
+.env
+.env.*
+config/prod.json
