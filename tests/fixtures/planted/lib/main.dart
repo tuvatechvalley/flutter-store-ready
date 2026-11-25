@@ -15,6 +15,13 @@ class App extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
+    // planted: the whole app ignores font sizes above 1.3x
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(context).copyWith(
+        textScaler: MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.3),
+      ),
+      child: child!,
+    ),
     theme: ThemeData(
       // planted: every button becomes full-width
       filledButtonTheme: FilledButtonThemeData(

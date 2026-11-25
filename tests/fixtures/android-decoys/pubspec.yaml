@@ -1,0 +1,9 @@
+name: android_decoys
+description: Fixture with Android settings that look wrong and are fine. Not a real app.
+version: 1.0.0+1
+environment:
+  sdk: ^3.8.0
+dependencies:
+  flutter:
+    sdk: flutter
+  image_picker: ^1.0.0

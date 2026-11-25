@@ -71,6 +71,15 @@
     {
       "title": "Large-text test (200–300%)",
       "level": "pass"
+    },
+    {
+      "title": "Text follows the phone's font size",
+      "level": "pass"
+    },
+    {
+      "title": "Text size fixed on single widgets",
+      "level": "warn",
+      "detail_contains": "brand.dart"
     }
   ],
   "must_not": [
@@ -88,6 +97,13 @@
     },
     {
       "title": "Account rules"
+    },
+    {
+      "title": "Screens tell the user when the server call fails",
+      "levels": [
+        "warn",
+        "fail"
+      ]
     }
   ]
 }

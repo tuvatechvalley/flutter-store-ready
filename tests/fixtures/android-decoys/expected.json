@@ -1,0 +1,13 @@
+{
+  "args": ["--skip-ios"],
+  "forbidden": {"blocking": 0, "warnings": 0},
+  "must": [
+    {"title": "INTERNET permission (main manifest)", "level": "fail"},
+    {"title": "Sensitive permissions (main manifest)", "level": "pass"},
+    {"title": "No development servers in release code", "level": "pass"}
+  ],
+  "must_not": [
+    {"title": "READ_MEDIA_IMAGES"},
+    {"title": "READ_MEDIA_VIDEO"}
+  ]
+}

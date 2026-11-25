@@ -19,7 +19,7 @@
     },
     {
       "title": "INTERNET permission (main manifest)",
-      "level": "fail"
+      "level": "warn"
     },
     {
       "title": "Cleartext HTTP",

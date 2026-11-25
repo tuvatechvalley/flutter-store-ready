@@ -40,7 +40,11 @@ final _rules = <(RegExp, String, bool)>[
     _blocking,
   ),
   (
-    RegExp(r'''['"]http://(?!localhost|127\.0\.0\.1|10\.0\.2\.2)'''),
+    // XML namespaces (an SVG string's xmlns="http://www.w3.org/2000/svg")
+    // are identifiers, not network addresses.
+    RegExp(
+      r'''['"]http://(?!localhost|127\.0\.0\.1|10\.0\.2\.2|www\.w3\.org/|schemas\.android\.com/|www\.apple\.com/DTDs/|ns\.adobe\.com/|purl\.org/)''',
+    ),
     'Plain HTTP URL in app code.',
     _blocking,
   ),

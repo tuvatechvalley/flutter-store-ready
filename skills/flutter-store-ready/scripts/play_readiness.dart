@@ -484,16 +484,42 @@ void _checkSdkLevels(String gradle) {
 
 void _checkManifest(String manifest) {
   const area = 'Manifest & security';
+  final internet = _declaredPermissions(
+    manifest,
+  ).contains('android.permission.INTERNET');
+  final merged = _mergedManifest();
+  final pubspec = _read('pubspec.yaml') ?? '';
+  // SDKs whose Android library declares INTERNET itself.
+  final bringsInternet =
+      [
+            'google_mobile_ads',
+            'firebase_core',
+            'google_sign_in',
+            'google_maps_flutter',
+          ]
+          .where((p) => RegExp('^\\s+$p:', multiLine: true).hasMatch(pubspec))
+          .toList();
+  final viaMerge =
+      merged != null &&
+      _declaredPermissions(merged).contains('android.permission.INTERNET');
   _add(
     area,
     'INTERNET permission (main manifest)',
-    manifest.contains('android.permission.INTERNET')
+    internet
         ? Status.pass
+        : (viaMerge || (merged == null && bringsInternet.isNotEmpty))
+        ? Status.warn
         : Status.fail,
-    manifest.contains('android.permission.INTERNET')
+    internet
         ? 'Present.'
+        : viaMerge
+        ? 'Not in your manifest, but a library adds it to the release build (merged manifest). It works, but only as long as that library stays.'
+        : (merged == null && bringsInternet.isNotEmpty)
+        ? 'Not in your manifest. ${bringsInternet.join(', ')} normally adds it to the release build, so the app probably has network access; build a release and re-run this audit to confirm.'
         : 'Missing: the RELEASE build cannot reach the network (debug works, so this is often missed).',
-    'Add <uses-permission android:name="android.permission.INTERNET"/> to app/src/main/AndroidManifest.xml.',
+    internet
+        ? null
+        : 'Add <uses-permission android:name="android.permission.INTERNET"/> to app/src/main/AndroidManifest.xml so it does not depend on a library.',
   );
 
   if (RegExp(r'android:debuggable="true"').hasMatch(manifest)) {
@@ -591,9 +617,12 @@ void _checkPermissions(String manifest, {required bool merged}) {
     'RECORD_AUDIO':
         'Requires Data safety declaration and runtime-permission rationale.',
   };
-  final declared = RegExp(
-    r'android\.permission\.([A-Z_]+)',
-  ).allMatches(manifest).map((m) => m.group(1)!).toSet();
+  // `<uses-permission … tools:node="remove"/>` removes a permission a
+  // plugin would add: it is the opposite of declaring it.
+  final declared = _declaredPermissions(manifest)
+      .where((p) => p.startsWith('android.permission.'))
+      .map((p) => p.substring(19))
+      .toSet();
   final hits = declared.where(sensitive.containsKey).toList();
   if (hits.isEmpty) {
     _add(
@@ -630,6 +659,18 @@ void _checkPermissions(String manifest, {required bool merged}) {
 
 /// The manifest Gradle really ships: the app's plus every plugin's. It only
 /// exists after a release build.
+/// Permissions a manifest really declares (`tools:node="remove"` entries
+/// are removals and are skipped).
+Set<String> _declaredPermissions(String xml) => {
+  for (final m in RegExp(
+    r'<uses-permission(?:-sdk-23)?\b([^>]*)>',
+  ).allMatches(xml))
+    if (!RegExp(r'tools:node\s*=\s*"remove"').hasMatch(m.group(1)!))
+      if (RegExp(r'android:name="([^"]+)"').firstMatch(m.group(1)!)?.group(1)
+          case final name?)
+        name,
+};
+
 String? _mergedManifest() {
   for (final dir in [
     'build/app/intermediates/merged_manifests/release',
@@ -649,9 +690,7 @@ void _checkPluginsAndKeys(String manifest, String? merged) {
   final pubspec = _read('pubspec.yaml') ?? '';
   bool pkg(String name) =>
       RegExp('^\\s+$name:', multiLine: true).hasMatch(pubspec);
-  Set<String> permissions(String xml) => RegExp(
-    r'<uses-permission[^>]*android:name="([^"]+)"',
-  ).allMatches(xml).map((m) => m.group(1)!).toSet();
+  Set<String> permissions(String xml) => _declaredPermissions(xml);
 
   if (merged != null) {
     final added = permissions(merged).difference(permissions(manifest)).toList()

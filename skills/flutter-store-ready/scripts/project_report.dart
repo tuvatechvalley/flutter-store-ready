@@ -155,6 +155,9 @@ Future<void> _runGates() async {
     String name,
     String exe,
     List<String> args, {
+    // Turns a failure into a different result (e.g. errors only in a
+    // vendored package). Returns null to keep the normal failure.
+    (Level, String)? Function(String out)? onFailure,
     String Function(String out, bool ok)? summarize,
     // Level for a failing exit code (style gates only warn).
     Level failLevel = Level.fail,
@@ -173,12 +176,15 @@ Future<void> _runGates() async {
     );
     final out = '${r.stdout}\n${r.stderr}'.trim();
     final ok = r.exitCode == 0;
-    final level = levelOf?.call(out, ok) ?? (ok ? Level.pass : failLevel);
+    final override = ok ? null : onFailure?.call(out);
+    final level =
+        override?.$1 ?? levelOf?.call(out, ok) ?? (ok ? Level.pass : failLevel);
     _gates.add(
       GateResult(
         name,
         level,
-        summarize?.call(out, ok) ??
+        override?.$2 ??
+            summarize?.call(out, ok) ??
             (ok ? 'Passed' : 'Failed (exit code ${r.exitCode})'),
         level == Level.pass ? null : _tail(out, 40),
       ),
@@ -217,6 +223,7 @@ Future<void> _runGates() async {
       'Static analysis',
       flutter,
       ['analyze', '--no-fatal-infos'],
+      onFailure: _analyzerErrorsOnlyInNestedPackages,
       summarize: (out, ok) {
         if (ok) return 'No errors or warnings';
         final n = RegExp(r'(\d+) issues? found').firstMatch(out)?.group(1);
@@ -281,6 +288,37 @@ Future<void> _runGates() async {
           : null,
     );
   }
+}
+
+/// When every analyzer error or warning is inside a nested package (a
+/// folder with its own pubspec.yaml, such as a vendored `third_party/hive`),
+/// the app itself is fine: report a warning that says where they are.
+(Level, String)? _analyzerErrorsOnlyInNestedPackages(String out) {
+  final files = [
+    for (final m in RegExp(
+      r'^\s*(?:error|warning) - .* - ([^:\s]+\.dart):\d+:\d+',
+      multiLine: true,
+    ).allMatches(out))
+      m.group(1)!.replaceAll(r'\', '/'),
+  ];
+  if (files.isEmpty) return null;
+  String? nestedRoot(String file) {
+    final parts = file.split('/');
+    for (var i = parts.length - 1; i > 0; i--) {
+      final dir = parts.sublist(0, i).join('/');
+      if (File('$_root/$dir/pubspec.yaml').existsSync()) return dir;
+    }
+    return null;
+  }
+
+  final roots = files.map(nestedRoot).toSet();
+  if (roots.contains(null)) return null; // at least one error is in the app
+  return (
+    Level.warn,
+    '${files.length} error(s), all inside nested package(s) ${roots.join(', ')} — none in the app. '
+        '`flutter analyze` still fails for anyone who runs it: exclude the folder in analysis_options.yaml '
+        '(analyzer: exclude: [${roots.map((r) => '"$r/**"').join(', ')}]).',
+  );
 }
 
 // ------------------------------------------------------------ error handling
@@ -373,7 +411,7 @@ void _checkScreenStates() {
   // dio.get('/x'), http.get(, await api.x(), await repository.x() ...
   final serverCall = RegExp(
     r'''\.(?:get|post|put|patch|delete)(?:<[^>]*>)?\(\s*['"]/|\bhttps?\.(?:get|post|put|delete)\('''
-    r'''|await\s+[^;\n]{0,80}(?:Api|Repository|Service|\bdio\b|Firestore|supabase)''',
+    r'''|await\s+[^;\n]{0,80}(?:Api\b|Api\.|Api\(|ApiClient|Repository|\bdio\b|Firestore|supabase|graphql)''',
   );
   final loadsOnOpen = RegExp(r'initState\s*\(|FutureBuilder|StreamBuilder');
   final loadingUi = RegExp(
@@ -455,6 +493,32 @@ const _uiLabels = {
   'body',
 };
 final _notUiCallCased = RegExp(r'^[A-Z]\w*(?:Exception|Error|Failure)$');
+
+/// Names of the calls that enclose [offset], innermost first.
+List<String> _enclosingCalls(String src, int offset, [int max = 8]) {
+  final calls = <String>[];
+  var depth = 0;
+  for (
+    var i = offset - 1;
+    i >= 0 && calls.length < max && offset - i < 3000;
+    i--
+  ) {
+    final c = src[i];
+    if (c == ')' || c == ']' || c == '}') {
+      depth++;
+    } else if (c == '(' || c == '[' || c == '{') {
+      if (depth > 0) {
+        depth--;
+        continue;
+      }
+      final m = RegExp(
+        r'([\w.]+)$',
+      ).firstMatch(src.substring((i - 80).clamp(0, i), i));
+      if (m != null && c == '(') calls.add(m.group(1)!.split('.').last);
+    }
+  }
+  return calls;
+}
 
 /// True when [offset] is inside a call / named argument that renders text to
 /// the user. Walks outwards through the enclosing brackets.
@@ -840,7 +904,33 @@ void _checkResponsive() {
   );
 
   final locked = <String>[];
+  final lockedLocally = <String>[];
   final fixedHeights = <String>[];
+  // A cap that applies to the whole app or a subtree (inside a MediaQuery)
+  // versus one on a single Text (`textScaler:` of a logo or a fixed-size
+  // calendar cell). Decided from the calls around the cap, not from nearby
+  // words: `style.copyWith(…)` next to a logo is not a MediaQuery.
+  const textWidgets = {
+    'Text',
+    'rich',
+    'RichText',
+    'SelectableText',
+    'TextSpan',
+  };
+  bool widgetLevel(String src, int offset) {
+    final calls = _enclosingCalls(src, offset, 6);
+    if (calls.any(
+      (c) =>
+          c == 'MediaQuery' ||
+          c == 'MediaQueryData' ||
+          c == 'withClampedTextScaling' ||
+          c == 'withNoTextScaling',
+    )) {
+      return false;
+    }
+    return calls.take(3).any(textWidgets.contains);
+  }
+
   var usesSafeArea = false;
   var adaptive = false;
   for (final MapEntry(key: path, value: src) in _libSources().entries) {
@@ -850,12 +940,18 @@ void _checkResponsive() {
       caseSensitive: false,
     ).hasMatch(src);
     final lines = src.split('\n');
-    for (var i = 0; i < lines.length; i++) {
+    var lineStart = 0;
+    for (var i = 0; i < lines.length; lineStart += lines[i].length + 1, i++) {
       final l = lines[i];
       if (l.trimLeft().startsWith('//')) continue;
       if (l.contains('TextScaler.noScaling') ||
           RegExp(r'textScaleFactor\s*:\s*1(\.0)?\b').hasMatch(l)) {
-        locked.add('$path:${i + 1}');
+        final at = l.contains('TextScaler.noScaling')
+            ? l.indexOf('TextScaler.noScaling')
+            : l.indexOf('textScaleFactor');
+        (widgetLevel(src, lineStart + at) ? lockedLocally : locked).add(
+          '$path:${i + 1}',
+        );
       }
       final clamp = RegExp(
         r'maxScaleFactor:\s*([0-9.]+)',
@@ -869,7 +965,10 @@ void _checkResponsive() {
             r'Navigation|Rail|AppBar|TabBar|BottomBar|chrome',
             caseSensitive: false,
           ).hasMatch(context)) {
-        locked.add('$path:${i + 1} (capped at ${clamp}x)');
+        (widgetLevel(src, lineStart + l.indexOf('maxScaleFactor'))
+                ? lockedLocally
+                : locked)
+            .add('$path:${i + 1} (capped at ${clamp}x)');
       }
     }
     for (final m in RegExp(
@@ -889,6 +988,15 @@ void _checkResponsive() {
         ? null
         : 'Remove TextScaler.noScaling / textScaleFactor: 1 and caps below 2x (only navigation bars may be capped).',
   );
+  if (lockedLocally.isNotEmpty) {
+    _add(
+      _sUi,
+      'Text size fixed on single widgets',
+      Level.warn,
+      'Text that does not follow the font size setting: ${_list(lockedLocally)}. Acceptable for a logo or a fixed-size cell (calendar day, badge) when the same information is readable elsewhere; not for content.',
+      'Keep it only where the layout cannot grow; give the element a tooltip / semantics label with the full text.',
+    );
+  }
   _add(
     _sUi,
     'No fixed heights around text',
@@ -1281,18 +1389,30 @@ void _checkStorePolicies() {
   final devHosts = <String>[];
   final reviewerChecks = <String>[];
   final hostPattern = RegExp(
-    r'''['"][^'"\n]*(?:localhost|127\.0\.0\.1|10\.0\.2\.2|192\.168\.\d+\.\d+|ngrok|staging[.-]|[.-]staging\.)''',
+    r'''['"](?:https?|wss?)://(?:localhost|127\.0\.0\.1|10\.0\.2\.2|192\.168\.\d+\.\d+|[^'"/\s]*(?:staging|ngrok)[^'"/\s]*)''',
   );
   final guard = RegExp(
-    r'kDebugMode|kReleaseMode|kProfileMode|fromEnvironment|assert\(|isDebug|forbidden:allow',
+    r'kDebugMode|kReleaseMode|kProfileMode|fromEnvironment|assert\(|forbidden:allow'
+    // A variable or parameter that selects the build: `if (isRelease) …`.
+    r'|\b(?:is|in)(?:Release|Debug|Prod|Production|Dev)(?:Mode|Build)?\b',
   );
   for (final MapEntry(key: path, value: src) in _libSources().entries) {
     final lines = src.split('\n');
     for (var i = 0; i < lines.length; i++) {
       final line = lines[i];
-      if (line.trimLeft().startsWith('//')) continue;
+      final t = line.trimLeft();
+      if (t.startsWith('//') ||
+          t.startsWith('import ') ||
+          t.startsWith('export ') ||
+          t.startsWith('part ')) {
+        continue;
+      }
       if (hostPattern.hasMatch(line)) {
-        final context = lines.sublist((i - 3).clamp(0, i), i + 1).join('\n');
+        // Code lines only: a comment that says "release" is not a guard.
+        final context = lines
+            .sublist((i - 3).clamp(0, i), i + 1)
+            .where((l) => !l.trimLeft().startsWith('//'))
+            .join('\n');
         if (!guard.hasMatch(context)) devHosts.add('$path:${i + 1}');
       }
       if (RegExp(
@@ -1381,10 +1501,14 @@ void _checkNavigationAndPermissions() {
   // A global full-width button style breaks every Row that holds a button.
   final wideButtons = <String>[];
   for (final MapEntry(key: path, value: src) in _libSources().entries) {
-    if (!RegExp(r'ThemeData\(|ButtonThemeData\(').hasMatch(src)) continue;
+    if (!RegExp(r'ThemeData\(').hasMatch(src)) continue;
     for (final m in RegExp(
       r'minimumSize:\s*(?:const\s+)?(?:Size\.fromHeight\(|Size\(\s*double\.infinity)',
     ).allMatches(src)) {
+      // Only inside a theme (…ThemeData(…)); a style on one button is fine.
+      if (!_enclosingCalls(src, m.start).any((c) => c.endsWith('ThemeData'))) {
+        continue;
+      }
       wideButtons.add('$path:${_line(src, m.start)}');
     }
   }

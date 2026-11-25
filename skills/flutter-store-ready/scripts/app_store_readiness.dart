@@ -579,8 +579,26 @@ void _checkPrivacy(String plist, String pbx, String pubspec) {
     'branch_flutter_sdk',
   ];
   final present = trackers.where((p) => _hasPackage(pubspec, p)).toList();
-  if (present.isNotEmpty) {
-    final att = plist.contains('NSUserTrackingUsageDescription');
+  final prompt = _libContains('requestTrackingAuthorization');
+  final key = plist.contains('NSUserTrackingUsageDescription');
+  if (prompt && !key) {
+    _add(
+      area,
+      'Tracking prompt without its Info.plist text',
+      Status.fail,
+      'The app calls requestTrackingAuthorization() but Info.plist has no NSUserTrackingUsageDescription: iOS terminates the app when the prompt is requested.',
+      'Add NSUserTrackingUsageDescription with a sentence that explains what tracking is used for.',
+    );
+  } else if (present.isNotEmpty && !prompt && !key) {
+    _add(
+      area,
+      'App Tracking Transparency',
+      Status.manual,
+      'Ad / attribution SDKs (${present.join(', ')}) and no tracking prompt: the app does not track on iOS (the advertising ID stays unavailable, ads are limited to non-tracking ones). '
+          'Make sure the SDK is configured that way and that App Store Connect > App Privacy says "not used for tracking".',
+    );
+  } else if (present.isNotEmpty) {
+    final att = key;
     _add(
       area,
       'App Tracking Transparency',
