@@ -96,9 +96,9 @@ dart run tests/run.dart planted    # one fixture
 | `scripts/` | `install`, `verify`, `project_report`, `play_readiness`, `app_store_readiness`, `check_forbidden`, `harden_platforms` |
 | `templates/starter_app/` | complete reference app (Flutter ≥ 3.47, `material_ui`, Riverpod 3, go_router, Dio) with tests and CI |
 
-## Türkçe kısa özet
+## Contributing
 
-Flutter uygulamalarını mağazaya çıkacak kaliteye getiren bir agent skill'i: hataları kapatır, güvenliği sağlar, telefonda yazı %200–300 büyütülünce sayfaların bozulmamasını garanti eder, Google Play için keystore/imza/targetSdk, App Store için bundle id/imza ekibi/ikon/izin metinleri/gizlilik manifesti gibi her şeyi denetler, hata mesajlarının kullanıcı dostu olmasını zorunlu tutar ve her işin sonunda **neler eksik, neler tamam** raporu (`PROJECT_REPORT.md`) verir. Kurulum: yukarıdaki `npx skills add …` komutu. Sonra Claude'a "bu uygulamayı production'a hazırla" ya da "Play'e çıkmaya hazır mı denetle" demen yeterli.
+Issues and pull requests are welcome; every pull request is reviewed before it is merged. See [CONTRIBUTING.md](CONTRIBUTING.md). Report security problems privately: [SECURITY.md](SECURITY.md).
 
 ## License
 

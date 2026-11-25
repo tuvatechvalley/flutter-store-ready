@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:starter_app/core/errors/app_failure.dart';
-import 'package:starter_app/core/providers.dart';
 import 'package:starter_app/features/items/data/items_repository.dart';
 import 'package:starter_app/features/items/presentation/items_controller.dart';
 
@@ -13,7 +12,7 @@ void main() {
 
   test('loads first page, then paginates to the end', () async {
     final container = createTestContainer(
-      overrides: [itemsRepositoryProvider.overrideWithValue(repo)],
+      overrides: testOverrides(items: repo),
     );
     final sub = container.listen(itemsControllerProvider, (_, _) {});
     addTearDown(sub.close);
@@ -38,7 +37,7 @@ void main() {
   test('first page failure surfaces a typed error', () async {
     repo.nextFailure = const NetworkFailure();
     final container = createTestContainer(
-      overrides: [itemsRepositoryProvider.overrideWithValue(repo)],
+      overrides: testOverrides(items: repo),
     );
     final sub = container.listen(itemsControllerProvider, (_, _) {});
     addTearDown(sub.close);
@@ -55,7 +54,7 @@ void main() {
 
   test('load-more failure keeps loaded items and allows retry', () async {
     final container = createTestContainer(
-      overrides: [itemsRepositoryProvider.overrideWithValue(repo)],
+      overrides: testOverrides(items: repo),
     );
     final sub = container.listen(itemsControllerProvider, (_, _) {});
     addTearDown(sub.close);

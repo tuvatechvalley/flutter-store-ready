@@ -1,12 +1,25 @@
 name: CI
 
+# Minutes on a private repository are limited, and Windows minutes count
+# double. Every push runs the quick jobs; the slow "install the starter and
+# run all gates" job runs on Linux only. Run the workflow by hand
+# (Actions > CI > Run workflow) to include Windows for that job too.
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "examples/**"
+      - "LICENSE"
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   scripts:
@@ -42,7 +55,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '["ubuntu-latest","windows-latest"]' || '["ubuntu-latest"]') }}
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2

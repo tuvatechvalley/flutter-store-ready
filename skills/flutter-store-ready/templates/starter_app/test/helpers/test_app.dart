@@ -41,9 +41,12 @@ List<Override> testOverrides({
   if (clock != null) clockProvider.overrideWithValue(clock),
 ];
 
-ProviderContainer createTestContainer({List<Override> overrides = const []}) {
+/// [overrides] replaces the defaults (like [pumpApp]); build it with
+/// [testOverrides] to change one dependency. Riverpod 3 rejects a provider
+/// that is overridden twice, so defaults and extras are never concatenated.
+ProviderContainer createTestContainer({List<Override>? overrides}) {
   final container = ProviderContainer(
-    overrides: [...testOverrides(), ...overrides],
+    overrides: overrides ?? testOverrides(),
     retry: (_, _) => null,
   );
   addTearDown(container.dispose);

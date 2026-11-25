@@ -28,7 +28,7 @@ void main() {
   test('locks the form after 5 wrong passwords, unlocks after 30s', () async {
     var now = DateTime(2026);
     final container = createTestContainer(
-      overrides: [clockProvider.overrideWithValue(() => now)],
+      overrides: testOverrides(clock: () => now),
     );
     final sub = container.listen(loginControllerProvider, (_, _) {});
     addTearDown(sub.close);

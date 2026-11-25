@@ -16,6 +16,11 @@ First version tried on real apps.
 - Navigation and permissions: back button, permission prompts at launch, full-width button themes, background work next to a refreshing session.
 - Account rules apply only when the app has sign-in: in-app deletion, reviewer test account, deletion described in the legal text.
 
+### Starter template fixes (found on Flutter 3.50.1)
+- Pagination: after a failed "load more", a successful retry left the old error under the list.
+- Test helper overrode the same provider twice, which Riverpod 3 rejects (3 tests failed).
+- New `test/navigation_test.dart`: pages animate, and the Android back button goes up one level.
+
 ### Tooling
 - `install.dart` (toolkit, strict analyzer, CI, hardening; `--starter` for a new app), `verify.dart` (`--release`, `--ci`), `harden_platforms.dart` (Kotlin and Groovy Gradle files; debug-only network config), `check_forbidden.dart` (security patterns block, habits warn).
 - Regression fixtures in `tests/` with planted problems and decoys; CI on Linux and Windows.
@@ -23,5 +28,5 @@ First version tried on real apps.
 
 ### Known limits
 - Most checks match text patterns: they can flag correct code and miss real problems. Report both with the issue templates.
-- The iOS build step (`flutter build ipa`) and the starter template's full test suite have only been run in CI, not on the machine the scripts were developed on.
+- Verified on Flutter 3.50.1 (Dart 3.14): scripts analyze cleanly, the starter installs, analyzes cleanly and passes all 136 tests. Not yet run: `flutter build appbundle` / `flutter build ipa` of the starter, and the iOS build step on macOS.
 - The starter needs Flutter ≥ 3.47.

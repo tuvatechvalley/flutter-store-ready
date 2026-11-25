@@ -24,6 +24,7 @@ late final String _skillDir;
 late final String _project;
 final _done = <String>[];
 final _skipped = <String>[];
+final _notes = <String>[];
 
 void main(List<String> args) {
   _skillDir = File.fromUri(Platform.script).parent.parent.path;
@@ -59,6 +60,7 @@ void main(List<String> args) {
   }
 
   _installTools();
+  _warnIfDart2(pubspec.readAsStringSync());
   _installAnalysisOptions(force: force);
   _installCi();
   _installGitFiles();
@@ -104,6 +106,9 @@ void main(List<String> args) {
   }
   for (final s in _skipped) {
     print('  = $s');
+  }
+  for (final n in _notes) {
+    print('  ! $n');
   }
   print('''
 
@@ -166,6 +171,24 @@ String? _installedFlutterVersion() {
   } on Object {
     return null;
   }
+}
+
+/// The tools use Dart 3 syntax and, once copied into tool/, are compiled
+/// with the project's own language version. A project that still allows
+/// Dart 2 cannot compile them there.
+void _warnIfDart2(String pubspec) {
+  final m = RegExp(
+    r'''^\s+sdk:\s*['"]?\s*(?:>=\s*|\^)?(\d+)\.\d+''',
+    multiLine: true,
+  ).firstMatch(pubspec);
+  final major = int.tryParse(m?.group(1) ?? '');
+  if (major == null || major >= 3) return;
+  _notes.add(
+    'pubspec.yaml still allows Dart $major (environment: sdk). The tools in '
+    'tool/flutter_store_ready/ need Dart 3 and will not compile from there. '
+    'Either raise the constraint to ^3.0.0, or run them from the skill '
+    'folder: dart run <skill>/scripts/project_report.dart .',
+  );
 }
 
 void _installTools() {

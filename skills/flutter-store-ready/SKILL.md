@@ -49,13 +49,13 @@ Pick the one matching the request. Do not skip the final report.
 2. `dart run <skill>/scripts/install.dart <app_name> --starter`
    The starter needs the Flutter version in `templates/starter_app/pubspec.yaml` (currently ≥ 3.47). On an older Flutter the script installs the toolkit but refuses the starter: tell the user, and ask before running `flutter upgrade` — never upgrade their SDK silently, never use `--force` to get around it.
    This gives: bootstrap with every error path covered, typed failures, Dio with SPKI pinning/retry/token refresh, secure storage, adaptive shell, large-text scaling, TR/EN localization, login + settings (theme, language, text size, privacy policy, delete account), tests incl. the responsive/large-text matrix, CI.
-3. `cd <app_name> && flutter pub get`, then build the user's features on top, following the patterns already in `lib/` (repository → `guardFailures`; controller → Riverpod `AsyncNotifier`; screen → `AsyncValueView` + `ResponsiveCenter`; strings → `AppLocalizations` in every language; screen added to `test/responsive_test.dart`).
+3. `cd <app_name> && flutter pub get`, then build the user's features on top, following the patterns already in `lib/` (repository → `guardFailures`; controller → Riverpod `AsyncNotifier`; screen → `AsyncValueView` + `ResponsiveCenter`; strings → `AppLocalizations` in every language; screen added to `test/responsive_test.dart`; nested routes covered by `test/navigation_test.dart`).
 4. Replace leftovers: app name, brand color, the sample "Items" feature, `config/prod.json`.
 5. Final report (section "Finish").
 
 ### B. Make an existing app production-ready
 
-1. `dart run <skill>/scripts/install.dart .` (never `--starter` on existing code).
+1. `dart run <skill>/scripts/install.dart .` (never `--starter` on existing code). If it warns that the project still allows Dart 2, do not change the SDK constraint on your own: run the scripts from `<skill>/scripts/` instead of `tool/`, and tell the user.
 2. `dart run tool/flutter_store_ready/verify.dart` → read `PROJECT_REPORT.md`.
 3. Show the user the blocking items and the plan; fix in this order: crashes & global error handling → security → large text / responsive → store requirements → leftovers. Port pieces from `templates/starter_app/lib/core/` instead of reinventing them.
 4. Re-run verify until no ❌ remains (or the user accepts the rest). Final report.

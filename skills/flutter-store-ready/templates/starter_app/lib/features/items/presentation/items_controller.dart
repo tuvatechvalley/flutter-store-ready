@@ -88,6 +88,9 @@ final class ItemsController extends AsyncNotifier<ItemsState> {
           items: [...current.items, ...page.items],
           nextCursor: () => page.nextCursor,
           isLoadingMore: false,
+          // `current` is the state before this call and may still carry the
+          // previous failure: a successful retry must clear it.
+          loadMoreFailure: () => null,
         ),
       );
     } on Object catch (error, stackTrace) {
