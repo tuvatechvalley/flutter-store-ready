@@ -1,0 +1,9 @@
+// !$*UTF8*$!
+{
+  buildSettings = {
+    DEVELOPMENT_TEAM = ABC1234567;
+    IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+    PRODUCT_BUNDLE_IDENTIFIER = com.acme.rnkeystore;
+    TARGETED_DEVICE_FAMILY = "1";
+  };
+}

@@ -209,12 +209,14 @@ void _checkExpoAndroid(int? lastVersionCode) {
       '`expo.version` is missing in app.json.',
     );
   } else if (code == null || code < 1) {
+    // Expo falls back to versionCode 1 when android.versionCode is missing:
+    // the first upload works, the second one is rejected for reusing the code.
     _add(
       'App identity',
       'versionCode',
-      hasEasProd ? Status.warn : Status.fail,
-      'No `expo.android.versionCode` in app.json${hasEasProd ? ' (acceptable only if `autoIncrement` / remote appVersionSource is enabled in eas.json)' : ''}.',
-      'Set `expo.android.versionCode` >= 1 in app.json (or enable remote autoIncrement in eas.json).',
+      Status.warn,
+      'No `expo.android.versionCode` in app.json: Expo uses 1, so only the first upload is accepted${hasEasProd ? ', unless remote autoIncrement is enabled in eas.json' : ''}.',
+      'Set `expo.android.versionCode` >= 1 and bump it on every upload, or enable `"autoIncrement": true` with `"appVersionSource": "remote"` in eas.json.',
     );
   } else if (lastVersionCode != null && code <= lastVersionCode) {
     _add(
@@ -1255,6 +1257,8 @@ void _checkSecretsInRepo() {
       .where(
         (f) =>
             f.endsWith('key.properties') ||
+            f.endsWith('keystore.properties') ||
+            f.endsWith(_signingProps) ||
             f.endsWith('.jks') ||
             f.endsWith('.keystore') ||
             f.endsWith('.p12') ||
@@ -1268,7 +1272,7 @@ void _checkSecretsInRepo() {
       .toList();
   _add(
     area,
-    'Keystore / key.properties not in git',
+    'Keystore / $_signingProps not in git',
     leaked.isEmpty ? Status.pass : Status.fail,
     leaked.isEmpty
         ? 'No signing secrets are tracked.'
@@ -1280,7 +1284,7 @@ void _checkSecretsInRepo() {
   final andRoot = _profile.androidRoot ?? 'android';
   final prefix = andRoot == '.' ? '' : '$andRoot/';
   final notIgnored = [
-    for (final path in ['${prefix}key.properties', '${prefix}upload.jks'])
+    for (final path in ['$prefix$_signingProps', '${prefix}upload.jks'])
       if (Process.runSync('git', [
             'check-ignore',
             '-q',

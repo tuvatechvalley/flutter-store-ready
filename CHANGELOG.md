@@ -29,7 +29,8 @@ Versions follow [semantic versioning](https://semver.org). While the version is 
 - Android signing: the properties file is the one `build.gradle` loads (`keystore.properties` in React Native / Expo templates), not always `key.properties`; with EAS Build a missing file is a warning (keys live in EAS credentials).
 - Expo: a missing `ios.buildNumber` is a warning (Expo falls back to "1"), not a blocker.
 - Fixed heights around text: small square boxes (≤ 64, width = height — avatars, badges, icon tiles) are skipped; fixed-height buttons, chip rows and cards are still reported. On the six apps: 83 → 41 locations; every removed one is a small square box.
-- New fixture `rn-keystore`; decoys and planted cases for each fix. 121 checks.
+- Follow-up fixes: `Podfile.lock` is now read alongside `Podfile` (catching autolinked pods); Gradle version-catalog inline tables (`{ group = "…", name = "…" }`) are matched; `_checkSecretsInRepo` tracks and checks `.gitignore` for the detected signing properties file (`keystore.properties` etc.); missing Expo `android.versionCode` now warns symmetrically with `ios.buildNumber`.
+- New fixture `rn-keystore`; decoys and planted cases for each fix.
 
 ### Earlier in 0.2.0
 - Split repository into four task-oriented skills: `flutter-store-ready`, `store-review`, `store-forms`, and `store-rejection`.

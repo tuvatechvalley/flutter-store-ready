@@ -1,7 +1,5 @@
 {
-  "args": [
-    "--skip-ios"
-  ],
+  "args": [],
   "must": [
     {
       "title": "keystore.properties fields",
@@ -10,6 +8,21 @@
     {
       "title": "Release signingConfig",
       "level": "pass"
+    },
+    {
+      "title": "Keystore / keystore.properties not in git",
+      "level": "fail",
+      "detail_contains": "keystore.properties"
+    },
+    {
+      "title": "Google Maps API key",
+      "level": "fail",
+      "section_contains": "Google Play"
+    },
+    {
+      "title": "AdMob application id",
+      "level": "fail",
+      "section_contains": "App Store"
     }
   ],
   "must_not": [
@@ -18,6 +31,12 @@
     },
     {
       "title": "android/keystore.properties"
+    },
+    {
+      "title": "Play audit"
+    },
+    {
+      "title": "App Store audit"
     }
   ]
 }

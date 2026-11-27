@@ -155,7 +155,10 @@ final class ProjectProfile {
 
     final podBuf = StringBuffer();
     for (final rel in [
-      if (iosRoot != null) _join(iosRoot, 'Podfile'),
+      if (iosRoot != null) ...[
+        _join(iosRoot, 'Podfile'),
+        _join(iosRoot, 'Podfile.lock'),
+      ],
       if (pbxRel != null) pbxRel,
     ]) {
       final f = File('$root/$rel');
@@ -459,9 +462,14 @@ final class ProjectProfile {
         continue;
       }
       if (npmDeps.containsKey(c)) return c;
-      // Gradle: only a dependency coordinate — "group:artifact[:version]".
+      // Gradle: `"group:artifact[:version]"` or a version-catalog inline table
+      // `{ group = "...", name = "artifact" }` (either field order).
       if (gradleText.isNotEmpty &&
-          RegExp('''["'][\\w.\\-]+:$esc(?:["':])''').hasMatch(gradleText)) {
+          RegExp(
+            '''["'][\\w.\\-]+:$esc(?:["':])'''
+            '''|\\bgroup\\s*=\\s*["'][\\w.\\-]+["']\\s*,\\s*name\\s*=\\s*["']$esc["']'''
+            '''|\\bname\\s*=\\s*["']$esc["']\\s*,\\s*group\\s*=\\s*["'][\\w.\\-]+["']''',
+          ).hasMatch(gradleText)) {
         return c;
       }
       // CocoaPods: `pod 'Name'` in the Podfile or `- Name (` in Podfile.lock.

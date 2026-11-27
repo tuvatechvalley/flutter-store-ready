@@ -1,0 +1,2 @@
+[libraries]
+play-services-maps = { group = "com.google.android.gms", name = "play-services-maps", version = "19.0.0" }
