@@ -1,0 +1,87 @@
+{
+  "args": [],
+  "forbidden": {
+    "blocking": 1,
+    "warnings": 0
+  },
+  "must": [
+    {
+      "title": "In-app account deletion",
+      "level": "fail"
+    },
+    {
+      "title": "Data your SDKs collect (declare it in both stores)",
+      "level": "manual",
+      "detail_contains": "@sentry/react-native"
+    },
+    {
+      "title": "applicationId",
+      "level": "fail",
+      "section_contains": "Google Play"
+    },
+    {
+      "title": "versionCode",
+      "level": "fail",
+      "section_contains": "Google Play"
+    },
+    {
+      "title": "targetSdk",
+      "level": "fail",
+      "section_contains": "Google Play"
+    },
+    {
+      "title": "Cleartext HTTP",
+      "level": "fail",
+      "section_contains": "Google Play"
+    },
+    {
+      "title": "READ_MEDIA_IMAGES",
+      "level": "warn",
+      "section_contains": "Google Play"
+    },
+    {
+      "title": "Bundle identifier",
+      "level": "fail",
+      "section_contains": "App Store"
+    },
+    {
+      "title": "Build number",
+      "level": "fail",
+      "section_contains": "App Store"
+    },
+    {
+      "title": "App Transport Security",
+      "level": "fail",
+      "section_contains": "App Store"
+    },
+    {
+      "title": "Permission usage descriptions",
+      "level": "fail",
+      "section_contains": "App Store",
+      "detail_contains": "NSMicrophoneUsageDescription"
+    },
+    {
+      "title": "Permission texts explain the purpose",
+      "level": "warn",
+      "section_contains": "App Store"
+    },
+    {
+      "title": "AdMob application id",
+      "level": "fail",
+      "section_contains": "App Store"
+    },
+    {
+      "title": "Sign in with Apple",
+      "level": "warn",
+      "section_contains": "App Store"
+    }
+  ],
+  "must_not": [
+    {
+      "title": "Play audit"
+    },
+    {
+      "title": "App Store audit"
+    }
+  ]
+}

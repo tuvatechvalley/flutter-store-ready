@@ -1,7 +1,7 @@
 {
   "name": "flutter-store-ready",
-  "description": "Store-release toolkit for mobile apps: /flutter-store-ready builds and hardens Flutter apps; /store-review audits before submission; /store-forms drafts Data safety and App Privacy answers; /store-rejection turns an Apple or Google rejection into a fix and a reply. Full automation for Flutter, checklist reviews for native Android/iOS, React Native and Expo.",
-  "version": "0.1.0",
+  "description": "Store-release toolkit for mobile apps: /flutter-store-ready builds and hardens Flutter apps (adapting to BLoC, Provider, Riverpod, classic Material and monorepos); /store-review runs automated pre-submission audits; /store-forms drafts Data safety and App Privacy answers; /store-rejection turns an Apple or Google rejection into a fix and a reply. Automated checks across Flutter, Expo, React Native and Native Android/iOS.",
+  "version": "0.2.0",
   "author": {
     "name": "Mehmet Akif Akca"
   },

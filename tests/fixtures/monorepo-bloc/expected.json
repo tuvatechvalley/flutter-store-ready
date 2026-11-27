@@ -1,0 +1,70 @@
+{
+  "args": [
+    "--skip-play",
+    "--skip-ios"
+  ],
+  "forbidden": {
+    "blocking": 0,
+    "warnings": 0
+  },
+  "must": [
+    {
+      "title": "Global error handlers",
+      "level": "pass"
+    },
+    {
+      "title": "Crash reporting",
+      "level": "pass"
+    },
+    {
+      "title": "No raw print logging",
+      "level": "pass"
+    },
+    {
+      "title": "Text follows the phone's font size",
+      "level": "pass"
+    },
+    {
+      "title": "No development servers in release code",
+      "level": "pass"
+    },
+    {
+      "title": "Screens show a loading state while data loads",
+      "level": "pass"
+    },
+    {
+      "title": "Screens tell the user when the server call fails",
+      "level": "pass"
+    },
+    {
+      "title": "No raw exception text shown to users",
+      "level": "fail",
+      "detail_contains": "broken_wrapper_screen.dart",
+      "detail_not_contains": "main.dart"
+    },
+    {
+      "title": "No fixed heights around text",
+      "level": "warn",
+      "detail_contains": "broken_wrapper_screen.dart"
+    }
+  ],
+  "must_not": [
+    {
+      "title": "Behaves the same for reviewers"
+    },
+    {
+      "title": "Screens show a loading state while data loads",
+      "levels": [
+        "warn",
+        "fail"
+      ]
+    },
+    {
+      "title": "Screens tell the user when the server call fails",
+      "levels": [
+        "warn",
+        "fail"
+      ]
+    }
+  ]
+}

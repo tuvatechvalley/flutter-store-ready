@@ -1,0 +1,13 @@
+{
+  "name": "acme-expo",
+  "version": "1.0.0",
+  "dependencies": {
+    "expo": "~54.0.0",
+    "react-native": "0.79.0",
+    "expo-camera": "~16.0.0",
+    "react-native-google-mobile-ads": "^14.0.0",
+    "@react-native-google-signin/google-signin": "^13.0.0",
+    "@stripe/stripe-react-native": "^0.40.0",
+    "@sentry/react-native": "^6.0.0"
+  }
+}

@@ -2,42 +2,37 @@
 
 Versions follow [semantic versioning](https://semver.org). While the version is 0.x the checks and their severities can still change between releases.
 
-## Unreleased
+## 0.2.0 — 2026-11-27
 
-### Commands
-- The repository now has four skills, split by task: `flutter-store-ready` (build and harden Flutter apps), `store-review` (read-only pre-submission audit), `store-forms` (Data safety / App Privacy and other console answers), `store-rejection` (cause, fix and reply for a rejection). The audit workflow moved out of `flutter-store-ready` into `store-review`.
-- The three store skills also handle native Android / iOS, React Native and Expo projects as a checklist review; automated checks remain Flutter-only.
-- Tried by fresh agents on four real apps (Flutter ×3, Expo ×1) with read-only rules; the projects were verified unchanged afterwards. Fixed from what they hit: report location in projects where `build/` is not git-ignored, one severity definition, a "changes to the automated findings" section, an Expo key map and prebuild warning, a children's-apps section (`STORE-POLICIES.md` §9, previously a broken reference), per-platform SDK answers, more data-declaration rows (own analytics, push tokens, age band, public nicknames, third-party names, server IP logs), console-dependent rejections (ask first, branches), "no reply needed" for Play form fixes, a subscription-rejection row for apps that sell none.
+### Structural Dart & Workspace Scanner (`dart_scanner.dart`)
+- Single-pass zero-dependency Dart lexer masks `//` and nested `/* … */` comments and string contents while keeping `${…}` interpolation expressions intact — parentheses or keywords inside strings and comments no longer corrupt call-tree, `.when(error:)`, `catch` scope, or `check_forbidden.dart` checks.
+- Structural call-argument inspection (`inspectCallAt`) checks `.when(error:)` accurately without fixed character windows and catches fixed numeric heights on both `SizedBox` and `Container` wrapping text widgets.
+- Project-wide semantic discovery (`ProjectSemantics`) automatically detects custom UI text/dialog/snackbar wrappers (catching raw `$e` / status codes passed through helpers like `showAppError` or `AppText`) as well as custom loading/error widgets so screens using them are not falsely flagged.
+- Native support for Dart `workspace:` and `packages/*` / `modules/*` monorepos across `project_report.dart` and `check_forbidden.dart`.
 
-### Audit
-- Play: a bundle older than the source code is a warning ("not the current code"); the certificate owner's name is no longer printed.
-- `in_app_purchase` is listed as collected purchase history only when the app or its server records purchases.
+### Cross-Platform Automation (Expo, React Native, Native Android & iOS)
+- New `project_detector.dart`: `project_report.dart`, `play_readiness.dart`, `app_store_readiness.dart`, and `check_forbidden.dart` now automatically detect and audit **Expo** (managed `app.json` + `eas.json` + prebuild drift warnings), **React Native** (non-`Runner` Xcode targets, `package.json`), **Native Android** (`app/` module layout), and **Native iOS** projects.
+- Cross-ecosystem SDK normalization maps npm, Expo config-plugin, Gradle, and CocoaPods dependencies to Play Data safety, App Privacy, ATT, Maps, Sign in with Apple, and permission checks.
+
+### Existing Flutter Architecture Compatibility (`EXISTING-PROJECTS.md`)
+- Added `EXISTING-PROJECTS.md` with copy-ready patterns for `flutter_bloc` / `Cubit` (`BlocObserver`, sealed 4-state UI keeping stale items on refresh error), `provider` / `ChangeNotifier`, `auto_route` / `Navigator`, and classic `package:flutter/material.dart` (Flutter < 3.47).
+- `install.dart` detects the project's existing stack on non-starter installs and reminds agents not to rewrite state management or routers.
+- Screen-state and navigation checks recognize `BlocBuilder`, `BlocConsumer`, `AutoTabsScaffold`, and `CupertinoTabScaffold`.
+
+### Centralized Store Policy Config & Context Optimization
+- Extracted annual Google Play, App Store, and Flutter thresholds into `scripts/store_policies.json` (`store_policies.dart`), validated by `tests/run.dart`.
+- Streamlined `skills/flutter-store-ready/SKILL.md` (~45% smaller) by removing duplicate prose already covered in the on-demand reference guides.
+- Added `monorepo-bloc` and `expo-bad` regression fixtures in `tests/fixtures/`.
+
+### Earlier in 0.2.0
+- Split repository into four task-oriented skills: `flutter-store-ready`, `store-review`, `store-forms`, and `store-rejection`.
+- Play: a bundle older than source code warns ("not the current code"); certificate owner names are redacted; `in_app_purchase` counts as collected purchase history only when recorded off-device.
 
 ## 0.1.0 — internal preview (2026-11-25)
 
 First version tried on real apps.
 
 ### Audits
-- `project_report.dart`: one report (`PROJECT_REPORT.md`) with blocking items, recommendations, manual store tasks and what is done.
-- `play_readiness.dart`: Google Play — signing, keystore, ids, targetSdk, manifest, sensitive permissions, 16 KB pages, the built bundle, and after a release build the merged manifest (permissions added by plugins, advertising ID).
-- `app_store_readiness.dart`: App Store — bundle id, team, icon, deployment target, Info.plist, permission texts, privacy manifest, tracking, Sign in with Apple, push, background modes. Reads project files only, so it also runs on Windows and Linux.
-- Error messages users can understand: exception text, status codes and server messages on screen.
-- Loading and error states per screen; tokens in plain storage; locked text scaling.
-- Store policy (only when the app has the feature): purchases, ads and consent, user content, AI, data declarations, payments outside store billing.
-- Navigation and permissions: back button, permission prompts at launch, full-width button themes, background work next to a refreshing session.
-- Account rules apply only when the app has sign-in: in-app deletion, reviewer test account, deletion described in the legal text.
-
-### Starter template fixes (found on Flutter 3.50.1)
-- Pagination: after a failed "load more", a successful retry left the old error under the list.
-- Test helper overrode the same provider twice, which Riverpod 3 rejects (3 tests failed).
-- New `test/navigation_test.dart`: pages animate, and the Android back button goes up one level.
-
-### Tooling
-- `install.dart` (toolkit, strict analyzer, CI, hardening; `--starter` for a new app), `verify.dart` (`--release`, `--ci`), `harden_platforms.dart` (Kotlin and Groovy Gradle files; debug-only network config), `check_forbidden.dart` (security patterns block, habits warn).
+- `project_report.dart`, `play_readiness.dart`, `app_store_readiness.dart`, `check_forbidden.dart`, `harden_platforms.dart`, `install.dart`, `verify.dart`.
 - Regression fixtures in `tests/` with planted problems and decoys; CI on Linux and Windows.
-- Works with any coding agent: plain `SKILL.md` + Dart scripts; the starter ships `AGENTS.md` and `CLAUDE.md`.
-
-### Known limits
-- Most checks match text patterns: they can flag correct code and miss real problems. Report both with the issue templates.
-- Verified on Flutter 3.50.1 (Dart 3.14): scripts analyze cleanly, the starter installs, analyzes cleanly and passes all 136 tests. Not yet run: `flutter build appbundle` / `flutter build ipa` of the starter, and the iOS build step on macOS.
-- The starter needs Flutter ≥ 3.47.
+- Reference starter in `templates/starter_app/` (Flutter ≥ 3.47, Riverpod 3, `go_router`, `Dio`, SPKI pinning, 136 tests).

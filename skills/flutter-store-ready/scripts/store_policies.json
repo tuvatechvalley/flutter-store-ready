@@ -1,0 +1,34 @@
+{
+  "checkedDate": "2026-11-27",
+  "googlePlay": {
+    "requiredTargetSdk": 36,
+    "requiredTargetSdkAndroidName": "Android 16",
+    "requiredTargetSdkSince": "2026-08-31",
+    "recommendedMinSdk": 24,
+    "minSupportedSdk": 21,
+    "minAgpFor16Kb": [8, 5, 1],
+    "minNdkFor16Kb": 28,
+    "minKeyValidityYears": 25,
+    "closedTestingSince": "13 Nov 2023",
+    "closedTestingMinTesters": 12,
+    "closedTestingMinDays": 14,
+    "defaultIconMd5": [
+      "57838d52c318faff743130c3fcfae0c6"
+    ]
+  },
+  "appStore": {
+    "minDeploymentTarget": "13.0",
+    "minDeploymentTargetSince": "2026-09-09",
+    "requiredXcode": "Xcode 26 / iOS 26 SDK",
+    "requiredXcodeSince": "2026-04-28",
+    "nextDeploymentTarget": "15.0",
+    "nextDeadline": "April 2027",
+    "nextRequirement": "From April 2027: built with the iOS 27 SDK, targeting iOS 15 or later",
+    "defaultIconMd5": [
+      "c785f8932297af4acd5f5ccb7630f01c"
+    ]
+  },
+  "flutter": {
+    "materialUiStandaloneSince": [3, 47]
+  }
+}

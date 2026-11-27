@@ -1,120 +1,77 @@
 ---
 name: flutter-store-ready
-description: Build and harden Flutter mobile apps to store-release quality — global error handling with user-friendly error messages, security (OWASP MASVS), responsive layouts that survive 200–300% system font size, navigation and permission pitfalls, store policies, Google Play signing (keystore, key.properties, targetSdk) and App Store setup (bundle id, signing team, Info.plist, privacy manifest). Use when creating a Flutter app, making an existing one production-ready or fixing what an audit found, or preparing a release. For a read-only audit use store-review; for store forms store-forms; for a rejection store-rejection. Always ends with a written report of what is done and what is missing.
+description: Build and harden Flutter mobile apps to store-release quality — global error handling with user-friendly error messages, security (OWASP MASVS), responsive layouts that survive 200–300% system font size, navigation and permission pitfalls, store policies, Google Play signing (keystore, key.properties, targetSdk) and App Store setup (bundle id, signing team, Info.plist, privacy manifest). Adapts to existing BLoC, Provider, Riverpod, classic Material and monorepo projects without rewrites. For a read-only audit use store-review; for store forms store-forms; for a rejection store-rejection. Always ends with a written report.
 ---
 
 # Flutter store-ready
 
-Goal: the user gets an app that behaves like a real store app — it does not crash, shows proper loading/error/empty states, never looks broken (any screen size, any font size), keeps data safe, and can be uploaded to Google Play and the App Store. Every task ends with a **report** (`PROJECT_REPORT.md`) listing what is done and what is still missing.
+Goal: deliver an app that behaves like a real store release — never crashes silently, renders loading / error + retry / empty / data states, survives any screen size and 200–300% system text scale, protects user data, and passes Google Play and App Store validation. Every task ends with `PROJECT_REPORT.md`.
 
-Talk to the user in their language. Reports are written in English.
+Talk to the user in their language. Write reports in English.
 
-## Files in this skill
+## Reference guides (load on demand)
 
-`<skill>` below means the directory that contains this SKILL.md.
+`<skill>` = the directory containing this `SKILL.md`. Read only the guides relevant to your current step:
 
-| File | Read when |
+| Guide | Read when |
 |---|---|
-| `ERROR-HANDLING.md` | writing any data-loading screen, repository or app bootstrap |
-| `SECURITY.md` | auth, tokens, networking, storage, logging, release builds |
-| `RESPONSIVE-AND-LARGE-TEXT.md` | writing or reviewing any UI |
-| `NAVIGATION-AND-LIFECYCLE.md` | tabs, back button, menus and dialogs that start actions, permission prompts, background services, dev servers |
-| `STORE-POLICIES.md` | the app has purchases, ads, user content, AI features, sign-in or Google services (Maps, sign-in) |
-| `GOOGLE-PLAY-RELEASE.md` | Android signing, keystore, versioning, Play Console, release |
-| `APP-STORE-RELEASE.md` | iOS bundle id, signing team, Info.plist, privacy, TestFlight, App Store Connect, review |
-| `AUDIT-AND-REPORTING.md` | auditing an existing app, writing the final report |
-| `scripts/` | the tools below (pure `dart:io`, run on Windows/macOS/Linux) |
-| `templates/starter_app/` | a complete reference app implementing every rule |
+| `EXISTING-PROJECTS.md` | hardening an existing app (BLoC/Cubit, Provider, `auto_route`, `flutter/material.dart`, Flutter < 3.47, or `packages/*` monorepos) |
+| `ERROR-HANDLING.md` | writing app bootstrap, repositories, error mapping, or any data-loading screen |
+| `SECURITY.md` | auth, token refresh, TLS pinning, secure storage, redacting logs, deep links, release hardening |
+| `RESPONSIVE-AND-LARGE-TEXT.md` | building or fixing UI layouts, themes, dialogs, or widget tests |
+| `NAVIGATION-AND-LIFECYCLE.md` | tabs, Android back button, actions started from menus/dialogs, permissions, background isolates, dev servers |
+| `STORE-POLICIES.md` | purchases/subscriptions, ads & consent, UGC, AI features, accounts, SHA fingerprints, children's apps |
+| `GOOGLE-PLAY-RELEASE.md` | Android upload key, `key.properties`, `targetSdk`, 16 KB pages, merged manifest, Play Console |
+| `APP-STORE-RELEASE.md` | iOS bundle id, signing team, `Info.plist`, `PrivacyInfo.xcprivacy`, ATT, TestFlight, App Store Connect |
+| `AUDIT-AND-REPORTING.md` | running audits, interpreting heuristics, formatting the final report |
 
-Scripts (run from the Flutter project root, or pass the project path):
+## Toolkit scripts (`<skill>/scripts/`, pure `dart:io`)
 
-| Script | Does |
+| Script | Purpose |
 |---|---|
-| `scripts/install.dart <project> [--starter]` | installs the toolkit into a project: `tool/flutter_store_ready/`, strict `analysis_options.yaml`, CI workflow, `.gitignore`/`.gitattributes`, Android/iOS hardening. `--starter` also installs the reference app code into a fresh `flutter create` project |
-| `tool/flutter_store_ready/verify.dart [--release] [--ci]` | after install: `pub get`, (release AAB), then the full report. `--ci` (pipelines): a missing upload key / `config/prod.json` is a warning, not a blocker |
-| `scripts/project_report.dart [project]` | the audit: quality gates + error handling + user-friendly error messages + security + large text + navigation & permissions + store rules + store policy (purchases, ads, user content, AI, data declarations) + Google Play + App Store → `build/reports/flutter-store-ready/PROJECT_REPORT.md` and `findings.json` |
-| `scripts/play_readiness.dart [project]` | Google Play audit only: key.properties, keystore (keytool), release signing, applicationId, targetSdk ≥ 36, icon, INTERNET permission, cleartext, backups, sensitive permissions, 16 KB, AAB signature, secrets in git → `PLAY_READINESS.md` |
-| `scripts/app_store_readiness.dart [project]` | App Store audit only, from the project files (runs on Windows/Linux too; only the build needs a Mac): bundle id, signing team, version/build, 1024 px icon (default / alpha), deployment target, iPad orientations, ATS, export compliance, permission keys and their wording, privacy manifest, tracking/ATT, Sign in with Apple, push entitlement, background modes, certificates in git → `APP_STORE_READINESS.md` |
+| `install.dart <project> [--starter]` | installs `tool/flutter_store_ready/` (incl. `store_policies.json`), strict analyzer, CI, `.gitignore`, Android/iOS hardening; `--starter` copies the reference app into a fresh `flutter create` project |
+| `verify.dart [--release] [--ci]` | runs `flutter pub get`, optional obfuscated release AAB (+ IPA on macOS), quality gates and full report |
+| `project_report.dart [project]` | structural Dart + workspace audit (`packages/*` included) + Google Play + App Store → `PROJECT_REPORT.md` & `findings.json` (also audits Expo, React Native and Native Android/iOS projects) |
+| `play_readiness.dart [project]` | Google Play readiness audit → `PLAY_READINESS.md` |
+| `app_store_readiness.dart [project]` | App Store readiness audit from project files (runs on Windows/Linux/macOS) → `APP_STORE_READINESS.md` |
+| `check_forbidden.dart [project]` | blocks on `http://`, disabled TLS, hardcoded secrets, plain-storage tokens; warns on `print`/`debugPrint` and empty `catch` |
+| `harden_platforms.dart [project] [--secure-screens]` | main `INTERNET` permission, backup exclusion, release HTTPS + debug LAN cleartext config, `key.properties` signing (Kotlin & Groovy), R8, optional `FLAG_SECURE` |
 
-| `scripts/check_forbidden.dart [project]` | blocking (exit 1): http://, disabled TLS checks, hard-coded secrets, tokens in SharedPreferences. Warning only: print / debugPrint, empty catch |
-| `scripts/harden_platforms.dart [project] [--secure-screens]` | INTERNET permission, backup/extraction rules, strict network security config for release + a debug-only one that allows plain HTTP to a dev server, release signing from key.properties (Kotlin and Groovy Gradle files), R8, optional FLAG_SECURE |
+Annual store thresholds (`targetSdk`, iOS deployment target, Xcode version, 16 KB AGP/NDK) live in `scripts/store_policies.json` — verify against official store announcements when policies change.
 
 ## Workflows
 
-Pick the one matching the request. Do not skip the final report.
-
 ### A. New app
-
-1. `flutter create --org com.<company> --platforms=android,ios <app_name>` (ask for the real org/app id if unknown — it is permanent on the stores; never `com.example`).
+1. `flutter create --org com.<company> --platforms=android,ios <app_name>` — ask for the real reverse-domain id first (permanent on both stores; never `com.example`).
 2. `dart run <skill>/scripts/install.dart <app_name> --starter`
-   The starter needs the Flutter version in `templates/starter_app/pubspec.yaml` (currently ≥ 3.47). On an older Flutter the script installs the toolkit but refuses the starter: tell the user, and ask before running `flutter upgrade` — never upgrade their SDK silently, never use `--force` to get around it.
-   This gives: bootstrap with every error path covered, typed failures, Dio with SPKI pinning/retry/token refresh, secure storage, adaptive shell, large-text scaling, TR/EN localization, login + settings (theme, language, text size, privacy policy, delete account), tests incl. the responsive/large-text matrix, CI.
-3. `cd <app_name> && flutter pub get`, then build the user's features on top, following the patterns already in `lib/` (repository → `guardFailures`; controller → Riverpod `AsyncNotifier`; screen → `AsyncValueView` + `ResponsiveCenter`; strings → `AppLocalizations` in every language; screen added to `test/responsive_test.dart`; nested routes covered by `test/navigation_test.dart`).
-4. Replace leftovers: app name, brand color, the sample "Items" feature, `config/prod.json`.
-5. Final report (section "Finish").
+   Requires the Flutter SDK constraint in `templates/starter_app/pubspec.yaml` (≥ 3.47). If older, `install.dart` installs the toolkit and refuses `--starter`: inform the user and ask before running `flutter upgrade` (never upgrade silently or bypass with `--force`).
+3. `cd <app_name> && flutter pub get`, then build requested features following `templates/starter_app/lib/` (`guardFailures` → `AsyncNotifier` → `AsyncValueView` + `ResponsiveCenter` → `AppLocalizations` in all locales → add every screen to `test/responsive_test.dart` and nested routes to `test/navigation_test.dart`).
+4. Replace starter placeholders (app title, seed color, sample `items` feature, `config/prod.json`) and run **Finish**.
 
 ### B. Make an existing app production-ready
+1. Read `EXISTING-PROJECTS.md`. **Preserve the app's existing architecture** (BLoC/Cubit, Provider, Riverpod, `auto_route`, `Navigator`, or `package:flutter/material.dart`) — never rewrite state management or upgrade SDK constraints unprompted.
+2. Run `dart run <skill>/scripts/install.dart .` (never `--starter` on existing code). If `pubspec.yaml` still targets Dart 2, run scripts from `<skill>/scripts/` instead of `tool/` and tell the user.
+3. Run `dart run tool/flutter_store_ready/verify.dart` and inspect `PROJECT_REPORT.md`.
+4. Present blockers and fix in priority order: **crashes & global error handlers → security → responsive / 200–300% text → store requirements → leftovers**. Adapt pure-Dart modules from `templates/starter_app/lib/core/` (`EXISTING-PROJECTS.md`).
+5. Re-run `verify.dart` until all ❌ blockers are resolved (or explicitly accepted by the user), then run **Finish**.
 
-1. `dart run <skill>/scripts/install.dart .` (never `--starter` on existing code). If it warns that the project still allows Dart 2, do not change the SDK constraint on your own: run the scripts from `<skill>/scripts/` instead of `tool/`, and tell the user.
-2. `dart run tool/flutter_store_ready/verify.dart` → read `PROJECT_REPORT.md`.
-3. Show the user the blocking items and the plan; fix in this order: crashes & global error handling → security → large text / responsive → store requirements → leftovers. Port pieces from `templates/starter_app/lib/core/` instead of reinventing them.
-4. Re-run verify until no ❌ remains (or the user accepts the rest). Final report.
-
-### C. Audit only → the `store-review` skill
-
-A read-only audit ("check my app", "is it ready for Play / the App Store?", "keystore var mı?") is the job of the **store-review** skill in this repository: follow it. Store forms (Data safety, App Privacy) → **store-forms**; a rejection from Apple or Google → **store-rejection**. All three use this skill's scripts and guides.
+### C. Read-only audit, forms, or rejection
+Delegate to sibling skills: pre-submission read-only audit → **store-review**; Data safety & App Privacy drafts → **store-forms**; Apple/Google rejection triage & reply → **store-rejection**.
 
 ### D. Release preparation
+- **Google Play** (`GOOGLE-PLAY-RELEASE.md`): upload keystore + `android/key.properties`, bump `+versionCode`, configure `config/prod.json`, run `verify.dart --release`, resolve ❌ in `PLAY_READINESS.md`.
+- **App Store** (`APP-STORE-RELEASE.md`): permanent bundle id, `DEVELOPMENT_TEAM`, opaque 1024 px icon, specific `NS*UsageDescription` strings, `PrivacyInfo.xcprivacy` in target, run `verify.dart --release`, resolve ❌ in `APP_STORE_READINESS.md`. On Windows/Linux state clearly that files were audited without building an IPA (macOS/Xcode required). Never choose `ITSAppUsesNonExemptEncryption` or signing teams on the user's behalf.
 
-- **Google Play**: follow `GOOGLE-PLAY-RELEASE.md`: upload keystore + `android/key.properties`, version bump, `config/prod.json`, then `dart run tool/flutter_store_ready/verify.dart --release` and fix every ❌ in `PLAY_READINESS.md`.
-- **App Store**: follow `APP-STORE-RELEASE.md`: bundle id, team in Xcode, icon, permission texts, privacy manifest, then the same `verify.dart --release` and fix every ❌ in `APP_STORE_READINESS.md`. The iOS archive is only built on macOS; on Windows/Linux say plainly that the project files were audited but no iOS build was made, and that the user needs a Mac or a macOS CI runner for `flutter build ipa` and the upload. Never set `ITSAppUsesNonExemptEncryption` or pick a signing team for the user — those are their declarations.
+## Non-negotiable rules (checklists in guides)
 
-## Non-negotiable rules
-
-Error handling (details: `ERROR-HANDLING.md`)
-- Bootstrap sets `FlutterError.onError`, `PlatformDispatcher.instance.onError`, `ErrorWidget.builder`, provider/bloc error observer, crash reporting.
-- Every thrown error is mapped to a typed failure at the repository boundary. Users never see `e.toString()`; they see a localized message and, when it makes sense, "Try again".
-- Error messages are written for non-technical users: what happened + what to do, in their language. Never on screen: exception text, HTTP status codes, response bodies, server messages passed through, words like "Exception" / "HTTP 500" / "status code". Technical detail goes to the logger only.
-- Every data screen renders loading, error (+ retry), empty and data. Refresh keeps old data visible. Pagination errors keep the loaded list.
-- Defensive JSON parsing; `mounted` checks after `await`; cancel requests of closed screens; no empty `catch`.
-
-Security (details: `SECURITY.md`)
-- Tokens only in Keychain/Keystore (`flutter_secure_storage`); wipe on reinstall; nothing secret in code, assets or `--dart-define`.
-- HTTPS only (fail closed in release); SPKI pinning with ≥ 2 pins for own APIs; never accept bad certificates; timeouts; single-flight token refresh using a separate Dio (avoids deadlock).
-- Redacting logger, no `print`; validate deep-link params and redirects; `--obfuscate --split-debug-info`; secrets scan + dependency scan in CI.
-
-Responsive & large text (details: `RESPONSIVE-AND-LARGE-TEXT.md`)
-- Text follows the system font size up to 3× (200% Android, ~310% iOS). Never `TextScaler.noScaling`, never cap below 2×. Only navigation bars may be capped (~1.3×) with tooltips.
-- Layout breakpoints use width ÷ text scale. No fixed heights around text. Everything that can overflow scrolls. Dialogs `scrollable: true`. `Wrap` for chip/button groups. `SafeArea`. Min 48dp targets, tooltips/semantics.
-- Every screen is in a widget test matrix: 5 sizes × 100/150/200/300% text × every locale; `tester.takeException()` must be null.
-
-Navigation, lifecycle and permissions (details: `NAVIGATION-AND-LIFECYCLE.md`)
-- The Android back button goes up one level, never out of the app from a nested page — with a test that presses it.
-- `if (!mounted) return;` guards UI updates only; an action started from a menu, sheet or dialog runs through a long-lived notifier captured before the await.
-- Permissions are requested where the feature is used and only from the roles that need it — never at launch.
-- Background code (push handler, workmanager, location service) has its own session; it never shares a rotating refresh token with the app.
-- Plain HTTP only through the debug-only network config; no dev address reaches a release build.
-
-Store policy (details: `STORE-POLICIES.md`; applies only when the app has the feature)
-- Purchases: "Restore purchases", a paywall that shows price / period / renewal / Terms + Privacy links, store billing for digital goods.
-- Ads: consent flow before the ad SDK starts; on iOS the tracking prompt is really shown; test ad units in every non-store build.
-- User content: report and block. AI features: disclosure + consent before personal data leaves, in-app reporting of generated content.
-- What the SDKs collect is declared identically in Data safety, App Privacy and the privacy policy.
-
-Store
-- When the app has sign-in: tell the user they must create a **reviewer test account** and enter it in Play Console (App content > App access) and App Store Connect (App Review Information) — never-expiring, with sample data, no SMS/e-mail code. Say this in the chat summary, not only in the report.
-- When users can delete their account: the privacy policy / terms must describe it (how, what is deleted, what is kept and for how long, contact). If the legal text is in the app the audit reads it; otherwise open the policy URL and check.
-- Account deletion in-app (+ web URL) when users can sign up; privacy policy link in the app; targetSdk ≥ 36 (Play, since 2026-08-31); real applicationId; custom icon; release signed with the upload key.
-- iOS: real bundle id; signing team set; opaque custom 1024 px icon; deployment target ≥ 13 (≥ 15 from April 2027); every permission has a usage description that explains the benefit to the user; privacy manifest in the Runner target; Sign in with Apple next to third-party logins; ATT before tracking; digital goods through in-app purchase.
-
-Flutter ≥ 3.47: import `package:material_ui/material_ui.dart` (not `package:flutter/material.dart`, deprecated). Riverpod 3: pass `retry: (_, _) => null` to `ProviderScope` when the UI offers its own retry. Verify current package and policy versions before relying on them.
+- **Errors (`ERROR-HANDLING.md`):** Close all startup error paths (`FlutterError.onError`, `PlatformDispatcher.instance.onError`, `Isolate` listener, `ErrorWidget.builder`, state observer, crash reporter). Map all repository exceptions to typed `AppFailure`s. Never render exception text (`$e`, `e.toString()`), HTTP status codes, raw payloads, or developer jargon on screen. Render loading, error + retry, empty, and data states while keeping stale data on refresh/pagination failure.
+- **Security (`SECURITY.md`):** Store tokens exclusively in Keychain/Keystore (`flutter_secure_storage`) with first-launch-after-reinstall wipe on iOS; never ship secrets in code, assets, or `--dart-define`. Enforce HTTPS fail-closed in release, SPKI pinning (≥ 2 pins) for own APIs, single-flight token refresh on a separate `Dio`, secret-redacting logger, deep-link validation, and `--obfuscate --split-debug-info`.
+- **Responsive & large text (`RESPONSIVE-AND-LARGE-TEXT.md`):** Support system font scaling up to 3× (never `TextScaler.noScaling` or caps < 2× except ~1.3× on nav chrome with tooltips). Compute breakpoints via `width / textScale`, avoid fixed heights around text, avoid full-width button themes, and test every screen across 5 sizes × 100/150/200/300% text × every locale.
+- **Navigation & lifecycle (`NAVIGATION-AND-LIFECYCLE.md`):** Test that Android system back steps up from nested routes instead of exiting. Capture long-lived cubits/notifiers *before* `await` in menus/dialogs so `if (!mounted) return;` never aborts sign-out or account deletion. Request permissions in context (never at launch). Isolate background refresh sessions.
+- **Store compliance (`STORE-POLICIES.md`, `GOOGLE-PLAY-RELEASE.md`, `APP-STORE-RELEASE.md`):** When accounts exist: provide real in-app account deletion (+ web URL), document deletion in legal text, offer Sign in with Apple alongside third-party logins on iOS, and remind the user in chat to configure a non-expiring **reviewer demo account** in both consoles. Enforce restore + transparent paywalls for IAP, UMP + ATT consent before ads/tracking, report + block for UGC, and AI data disclosure.
 
 ## Finish (mandatory)
 
-Before saying the work is done:
-
-1. Run `dart run tool/flutter_store_ready/verify.dart` (or `dart run <skill>/scripts/project_report.dart .` if the toolkit is not installed).
-2. Give the user the file `build/reports/flutter-store-ready/PROJECT_REPORT.md` (and `PLAY_READINESS.md` / `APP_STORE_READINESS.md` for release work).
-3. In chat, in the user's language, 3–6 lines: the verdict, the blocking items, what you fixed, and the single next step. Do not paste the whole report.
-
-If `flutter` is not installed where you run, say that gates were skipped and which ones; never claim tests passed when they did not run.
+1. Run `dart run tool/flutter_store_ready/verify.dart` (or `dart run <skill>/scripts/project_report.dart .` if not installed). If `flutter` is unavailable, state clearly which gates were skipped — never claim unrun tests passed.
+2. Deliver `build/reports/flutter-store-ready/PROJECT_REPORT.md` (plus `PLAY_READINESS.md` / `APP_STORE_READINESS.md` for release tasks).
+3. Reply in the user's language in 3–6 lines: verdict, remaining blockers, fixes applied, and the single next step.

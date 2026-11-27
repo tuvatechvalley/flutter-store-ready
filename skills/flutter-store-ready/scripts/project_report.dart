@@ -1,4 +1,6 @@
-// Production-readiness report for ANY Flutter app: "what is done, what is
+// Production-readiness report for mobile apps (full code + platform audit for
+// Flutter workspaces; automated platform + policy + secret audits for Expo,
+// React Native, Native Android and Native iOS): "what is done, what is
 // missing".
 //
 //   dart run <skill>/scripts/project_report.dart [project_dir]
@@ -7,20 +9,20 @@
 //        [--ci]   signing material and config/prod.json cannot exist on CI:
 //                 their absence is a warning instead of a blocker
 //
-// Checks quality gates (format, analyze, forbidden patterns, tests), global
-// error handling, security, responsive & large-text support, store-required
-// features, production config, leftovers from `flutter create`, code health,
-// and the full Google Play and App Store audits. Writes:
-//
+// Writes:
 //   <out>/PROJECT_REPORT.md   (default out: <project>/build/reports/flutter-store-ready)
 //   <out>/findings.json       (machine-readable, same items)
 //
 // Exit code 1 when anything is blocking (unless --no-fail).
-// Only dart:io: runs on Windows, macOS and Linux without `pub get`.
+// Only dart:convert and dart:io: runs on Windows, macOS and Linux without `pub get`.
 // ignore_for_file: avoid_print
 
 import 'dart:convert';
 import 'dart:io';
+
+import 'dart_scanner.dart';
+import 'project_detector.dart';
+import 'store_policies.dart';
 
 enum Level { pass, warn, fail, manual }
 
@@ -64,7 +66,10 @@ void _add(
 
 late final String _root;
 late final String _scriptsDir;
+late final ProjectProfile _profile;
+late final StorePolicies _policies;
 late final String _pubspec;
+late final String _rootPubspec;
 bool _ci = false;
 
 /// Set by [_checkStoreRequirements]: account rules (deletion, reviewer
@@ -99,42 +104,55 @@ Future<void> main(List<String> args) async {
     positional.isEmpty ? Directory.current.path : positional.first,
   ).resolveSymbolicLinksSync();
   _scriptsDir = File.fromUri(Platform.script).parent.path;
+  _policies = StorePolicies.load(_scriptsDir);
+  _profile = ProjectProfile.detect(_root);
 
-  final pubspecFile = File('$_root/pubspec.yaml');
-  if (!pubspecFile.existsSync()) {
-    stderr.writeln('No pubspec.yaml in $_root: not a Flutter project.');
+  if (_profile.kind == ProjectKind.unknown) {
+    stderr.writeln(
+      'No mobile project (pubspec.yaml, app.json, package.json, Android or Xcode project) found in $_root.',
+    );
     exitCode = 2;
     return;
   }
-  _pubspec = pubspecFile.readAsStringSync();
-  final outDir = opt('--out') ?? '$_root/build/reports/flutter-store-ready';
 
+  final pubspecFile = File('$_root/pubspec.yaml');
+  _rootPubspec = pubspecFile.existsSync() ? pubspecFile.readAsStringSync() : '';
+  _pubspec = _profile.pubspec;
+  final outDir = opt('--out') ?? '$_root/build/reports/flutter-store-ready';
   _ci = args.contains('--ci');
 
-  if (args.contains('--gates-passed')) {
-    for (final name in [
-      'Formatting',
-      'Static analysis',
-      'Forbidden patterns',
-      'Tests',
-    ]) {
-      _gates.add(GateResult(name, Level.pass, 'Passed (verify.dart)'));
-      _add(_sGates, name, Level.pass, 'Passed (verify.dart)');
+  if (_profile.isFlutter) {
+    if (args.contains('--gates-passed')) {
+      for (final name in [
+        'Formatting',
+        'Static analysis',
+        'Forbidden patterns',
+        'Tests',
+      ]) {
+        _gates.add(GateResult(name, Level.pass, 'Passed (verify.dart)'));
+        _add(_sGates, name, Level.pass, 'Passed (verify.dart)');
+      }
+    } else if (!args.contains('--skip-gates')) {
+      await _runGates();
     }
-  } else if (!args.contains('--skip-gates')) {
-    await _runGates();
+
+    _checkErrorHandling();
+    _checkUserFacingErrors();
+    _checkSecurity();
+    _checkResponsive();
+    _checkStoreRequirements();
+    _checkStorePolicies();
+    _checkNavigationAndPermissions();
+    _checkProductionConfig();
+    _checkLeftovers();
+    _checkCodeHealth();
+  } else {
+    if (!args.contains('--skip-gates')) {
+      await _runNonFlutterGates();
+    }
+    _checkNonFlutterApp();
   }
 
-  _checkErrorHandling();
-  _checkUserFacingErrors();
-  _checkSecurity();
-  _checkResponsive();
-  _checkStoreRequirements();
-  _checkStorePolicies();
-  _checkNavigationAndPermissions();
-  _checkProductionConfig();
-  _checkLeftovers();
-  _checkCodeHealth();
   if (!args.contains('--skip-play')) {
     await _runPlayAudit(outDir, opt('--last-version-code'));
   }
@@ -324,7 +342,7 @@ Future<void> _runGates() async {
 // ------------------------------------------------------------ error handling
 
 void _checkErrorHandling() {
-  final all = _libSources().values.join('\n');
+  final all = _allCodeOnly();
   final flutterError = all.contains('FlutterError.onError');
   final asyncErrors =
       all.contains('PlatformDispatcher.instance.onError') ||
@@ -340,7 +358,7 @@ void _checkErrorHandling() {
         : 'Missing: ${[if (!flutterError) 'FlutterError.onError', if (!asyncErrors) 'PlatformDispatcher.instance.onError'].join(', ')}. Uncaught errors crash or vanish silently.',
     flutterError && asyncErrors
         ? null
-        : 'Add a bootstrap() like templates/starter_app/lib/bootstrap.dart (ERROR-HANDLING.md).',
+        : 'Add a bootstrap() like templates/starter_app/lib/bootstrap.dart (ERROR-HANDLING.md; for BLoC/Provider see EXISTING-PROJECTS.md).',
   );
 
   final errorWidget = all.contains('ErrorWidget.builder');
@@ -370,18 +388,17 @@ void _checkErrorHandling() {
 
   final unhandledBuilders = <String>[];
   final whenWithoutError = <String>[];
-  for (final MapEntry(key: path, value: src) in _libSources().entries) {
-    if ((src.contains('FutureBuilder') || src.contains('StreamBuilder')) &&
-        !src.contains('hasError')) {
+  for (final MapEntry(key: path, value: parsed) in _parsedLib().entries) {
+    final code = parsed.codeOnly;
+    if ((code.contains('FutureBuilder') || code.contains('StreamBuilder')) &&
+        !code.contains('hasError')) {
       unhandledBuilders.add(path);
     }
-    for (final m in RegExp(r'\.when\(').allMatches(src)) {
-      final window = src.substring(
-        m.start,
-        (m.start + 1500).clamp(0, src.length),
-      );
-      if (!window.contains('error:')) {
-        whenWithoutError.add('$path:${_line(src, m.start)}');
+    for (final m in RegExp(r'\.when\s*\(').allMatches(code)) {
+      final openParen = m.end - 1;
+      final call = parsed.inspectCallAt(openParen, callee: 'when');
+      if (call != null && !call.hasNamed('error')) {
+        whenWithoutError.add('$path:${parsed.lineOf(m.start)}');
       }
     }
   }
@@ -403,34 +420,52 @@ void _checkErrorHandling() {
 
 /// Screen by screen: a screen that fetches data when it opens must show a
 /// loading indicator, and a screen that talks to the server must tell the
-/// user when that fails. Heuristic (file level), so it is a recommendation.
+/// user when that fails. Recognizes Riverpod, BLoC/Cubit, Provider/Listenable
+/// and custom project loading/error widgets discovered by [ProjectSemantics].
 void _checkScreenStates() {
+  final semantics = _semantics();
   final screenFile = RegExp(
-    r'class [A-Z]\w*(?:Page|Screen) extends (?:Stateless|Stateful|Consumer|ConsumerStateful|Hook|HookConsumer)Widget',
+    r'class\s+[A-Z]\w*(?:Page|Screen)\s+extends\s+(?!State<)\w+',
   );
-  // dio.get('/x'), http.get(, await api.x(), await repository.x() ...
   final serverCall = RegExp(
     r'''\.(?:get|post|put|patch|delete)(?:<[^>]*>)?\(\s*['"]/|\bhttps?\.(?:get|post|put|delete)\('''
-    r'''|await\s+[^;\n]{0,80}(?:Api\b|Api\.|Api\(|ApiClient|Repository|\bdio\b|Firestore|supabase|graphql)''',
+    r'''|await\s+[^;\n]{0,80}(?:Api\b|Api\.|Api\(|ApiClient|Repository|\bdio\b|Firestore|supabase|graphql)'''
+    r'''|\bBloc(?:Builder|Consumer)<|\bcontext\.(?:read|watch)<\w*(?:Bloc|Cubit|Notifier|ViewModel)>''',
   );
-  final loadsOnOpen = RegExp(r'initState\s*\(|FutureBuilder|StreamBuilder');
+  final loadsOnOpen = RegExp(
+    r'initState\s*\(|FutureBuilder|StreamBuilder|BlocBuilder|BlocConsumer',
+  );
+  final extraLoading = [
+    for (final w in semantics.customLoadingWidgets) '\\b${RegExp.escape(w)}\\b',
+  ];
+  final extraError = [
+    for (final w in semantics.customErrorWidgets) '\\b${RegExp.escape(w)}\\b',
+  ];
   final loadingUi = RegExp(
-    r'CircularProgressIndicator|LinearProgressIndicator|RefreshProgressIndicator'
-    r'|CupertinoActivityIndicator|Shimmer|Skeleton|[Ll]oading|[Yy]ukleniyor|[Yy]ükleniyor'
-    r'|isBusy|ConnectionState\.waiting|\.when\(|AsyncValueView',
+    [
+      r'CircularProgressIndicator|LinearProgressIndicator|RefreshProgressIndicator',
+      r'CupertinoActivityIndicator|Shimmer|Skeleton|[Ll]oading|[Yy]ukleniyor|[Yy]ükleniyor',
+      r'isBusy|ConnectionState\.waiting|\.when\(|AsyncValueView',
+      ...extraLoading,
+    ].join('|'),
   );
   final errorUi = RegExp(
-    r'hasError|Error(?:View|Widget|State|Message|Text)|\berror\s*[:=]|_error\b'
-    r'|[Rr]etry|[Tt]ekrar [Dd]ene|[Tt]ry again|AsyncValueView|showSnackBar'
-    r'|\.when\(|[Hh]ata\b',
+    [
+      r'hasError|Error(?:View|Widget|State|Message|Text)|\berror\s*[:=]|_error\b',
+      r'[Rr]etry|[Tt]ekrar [Dd]ene|[Tt]ry again|AsyncValueView|showSnackBar',
+      r'\.when\(|[Hh]ata\b|\bFailure\b',
+      ...extraError,
+    ].join('|'),
   );
   final noLoading = <String>[];
   final noError = <String>[];
   var dataScreens = 0;
-  for (final MapEntry(key: path, value: src) in _libSources().entries) {
-    if (!screenFile.hasMatch(src) || !serverCall.hasMatch(src)) continue;
+  for (final MapEntry(key: path, value: parsed) in _parsedLib().entries) {
+    final code = parsed.codeOnly;
+    final src = parsed.raw;
+    if (!screenFile.hasMatch(code) || !serverCall.hasMatch(src)) continue;
     dataScreens++;
-    if (loadsOnOpen.hasMatch(src) && !loadingUi.hasMatch(src)) {
+    if (loadsOnOpen.hasMatch(code) && !loadingUi.hasMatch(src)) {
       noLoading.add(path);
     }
     if (!errorUi.hasMatch(src)) noError.add(path);
@@ -461,121 +496,8 @@ void _checkScreenStates() {
 }
 
 // ------------------------------------------------ messages users can read
-//
-// Users must never see exception text, HTTP status codes, server payloads or
-// developer wording. Each suspicious expression is only reported when it sits
-// inside something that is shown on screen (Text, SnackBar, errorText: ...)
-// and not inside logging / throw / crash reporting.
-
-const _uiCalls = {
-  'Text',
-  'SelectableText',
-  'TextSpan',
-  'SnackBar',
-  'AlertDialog',
-  'Tooltip',
-  'MaterialBanner',
-  'showSnackBar',
-  'showToast',
-  // notifications (flutter_local_notifications)
-  'show',
-  'zonedSchedule',
-};
-const _uiLabels = {
-  'errorText',
-  'content',
-  'title',
-  'message',
-  'subtitle',
-  'label',
-  'helperText',
-  'text',
-  'body',
-};
-final _notUiCallCased = RegExp(r'^[A-Z]\w*(?:Exception|Error|Failure)$');
-
-/// Names of the calls that enclose [offset], innermost first.
-List<String> _enclosingCalls(String src, int offset, [int max = 8]) {
-  final calls = <String>[];
-  var depth = 0;
-  for (
-    var i = offset - 1;
-    i >= 0 && calls.length < max && offset - i < 3000;
-    i--
-  ) {
-    final c = src[i];
-    if (c == ')' || c == ']' || c == '}') {
-      depth++;
-    } else if (c == '(' || c == '[' || c == '{') {
-      if (depth > 0) {
-        depth--;
-        continue;
-      }
-      final m = RegExp(
-        r'([\w.]+)$',
-      ).firstMatch(src.substring((i - 80).clamp(0, i), i));
-      if (m != null && c == '(') calls.add(m.group(1)!.split('.').last);
-    }
-  }
-  return calls;
-}
-
-/// True when [offset] is inside a call / named argument that renders text to
-/// the user. Walks outwards through the enclosing brackets.
-bool _shownToUser(String src, int offset) {
-  final calls = <String>[];
-  final labels = <String>[];
-  var depth = 0;
-  var argumentStartSeen = false;
-  for (
-    var i = offset - 1;
-    i >= 0 && calls.length < 5 && offset - i < 1500;
-    i--
-  ) {
-    final c = src[i];
-    if (c == ')' || c == ']' || c == '}') {
-      depth++;
-      continue;
-    }
-    final opens = c == '(' || c == '[' || c == '{';
-    if (depth == 0 && !argumentStartSeen && (c == ',' || opens)) {
-      // `errorText: '...'` — the label of the argument we are in.
-      argumentStartSeen = true;
-      final label = RegExp(
-        r'^\s*(\w+):',
-      ).firstMatch(src.substring(i + 1, offset))?.group(1);
-      if (label != null) labels.add(label);
-    }
-    if (!opens) continue;
-    if (depth > 0) {
-      depth--;
-      continue;
-    }
-    final before = src.substring((i - 80).clamp(0, i), i);
-    final m = RegExp(
-      r'(?:(\w+):\s*)?(?:const\s+)?([\w.]*)$',
-    ).firstMatch(before);
-    if (m?.group(1) case final label?) labels.add(label);
-    final callee = (m?.group(2) ?? '').split('.').last;
-    if (callee.isNotEmpty) calls.add(callee);
-    argumentStartSeen = false;
-  }
-  for (final call in calls) {
-    if (_notUiCallCased.hasMatch(call)) return false;
-    if (!_uiCalls.contains(call) &&
-        RegExp(
-          r'log|print|report|capture|sentry|crashlytics|assert',
-          caseSensitive: false,
-        ).hasMatch(call)) {
-      return false;
-    }
-  }
-  return calls.any(_uiCalls.contains) || labels.any(_uiLabels.contains);
-}
 
 final _rawExceptionText = RegExp(
-  // e.toString(), snapshot.error.toString(), '$e', '${e.message}',
-  // '${error.runtimeType}', '$stackTrace'
   r'\b(?:e|err|error|exception|ex|failure|\w+\.error)\.toString\(\)'
   r'|\$(?:e|err|error|exception|ex|stackTrace|stack|st)\b'
   r'|\$\{(?:e|err|error|exception|ex|snapshot|stackTrace|stack|st)\b[^}]*\}'
@@ -587,111 +509,71 @@ final _statusOrPayload = RegExp(
 final _serverText = RegExp(
   r'''\[\s*['"](?:message|error|detail|msg|errors|error_description)['"]\s*\]''',
 );
-final _stringLiteral = RegExp(
-  r'''\'(?:[^\'\\\n]|\\.)*\'|"(?:[^"\\\n]|\\.)*"''',
-);
 final _developerWording = RegExp(
   r'\b[A-Z]\w+(?:Exception|Error)\b|\bException\b|\bHTTP \d{3}\b'
   r'|\b[Ee]rror \d{3}\b|\b[Hh]ata \d{3}\b|\bstatus ?code\b|\bdurum kodu\b'
   r'|\bstack ?trace\b|\bInternal Server Error\b|\bBad Request\b'
   r'|\bBad Gateway\b|\bUnauthorized\b|\berrno\b|\bnull pointer\b'
-  // browser / parser / socket messages, and codes in brackets: "(500)"
   r'|\bFailed to fetch\b|\bUnexpected token\b|\bXMLHttpRequest\b'
   r'|\bConnection refused\b|\bis not a subtype of\b|\([45]\d{2}\)',
 );
-
-/// True when [name] is bound by `catch (name`, `catchError((name`,
-/// `onError: (name`, `error: (name` or `errorBuilder: (…, name` and [offset]
-/// is still inside that handler. A `catch (e)` further up the file does not
-/// make an unrelated `for (final e in items)` an exception.
-bool _boundAsError(String src, int offset, String name) {
-  final before = src.substring((offset - 4000).clamp(0, offset), offset);
-  final binding = RegExp(
-    '(?:catch|catchError|onError\\s*:|error\\s*:|errorBuilder\\s*:)'
-    '\\s*\\(+[^)]*\\b$name\\b[^)]*\\)',
-  );
-  for (final m in binding.allMatches(before).toList().reversed) {
-    final rest = before.substring(m.end);
-    if (RegExp(r'^\s*=>').hasMatch(rest)) {
-      // `error: (e, st) => Text('$e')`: in scope until the statement ends.
-      if (!rest.contains(';')) return true;
-      continue;
-    }
-    // `catch (e) { … }`: in scope while its block is still open.
-    var depth = 0;
-    var opened = false;
-    var closed = false;
-    for (var i = 0; i < rest.length && !closed; i++) {
-      if (rest[i] == '{') {
-        depth++;
-        opened = true;
-      } else if (rest[i] == '}') {
-        depth--;
-        closed = opened && depth == 0;
-      }
-    }
-    if (opened && !closed) return true;
-  }
-  return false;
-}
 
 void _checkUserFacingErrors() {
   final raw = <String>{};
   final status = <String>{};
   final server = <String>{};
   final wording = <String>{};
+  final customUi = _semantics().customUiCalls;
 
-  for (final MapEntry(key: path, value: src) in _libSources().entries) {
-    bool allowed(int offset) {
-      final start = src.lastIndexOf('\n', offset - 1) + 1;
-      final end = src.indexOf('\n', offset);
-      final line = src.substring(start, end < 0 ? src.length : end);
-      return line.trimLeft().startsWith('//') ||
-          line.contains('forbidden:allow');
-    }
-
-    void scan(RegExp pattern, Set<String> into) {
-      for (final m in pattern.allMatches(src)) {
-        if (allowed(m.start) || !_shownToUser(src, m.start)) continue;
-        into.add('$path:${_line(src, m.start)}');
-      }
-    }
+  for (final MapEntry(key: path, value: parsed) in _parsedLib().entries) {
+    final src = parsed.raw;
+    bool shown(int offset) =>
+        !parsed.isAllowed(offset) &&
+        parsed.shownToUser(offset, customUiCalls: customUi);
 
     for (final m in _rawExceptionText.allMatches(src)) {
-      if (allowed(m.start) || !_shownToUser(src, m.start)) continue;
-      // `e`, `ex`, `err` are also everyday names for list items
-      // (`'${e['count']}'`): only report them when an error handler binds
-      // the name just above.
+      if (!shown(m.start)) continue;
       final name = RegExp(r'^\$?\{?(e|ex|err)\b').firstMatch(m.group(0)!);
-      if (name != null && !_boundAsError(src, m.start, name.group(1)!)) {
+      if (name != null && !parsed.boundAsError(m.start, name.group(1)!)) {
         continue;
       }
-      raw.add('$path:${_line(src, m.start)}');
+      raw.add('$path:${parsed.lineOf(m.start)}');
     }
-    scan(_statusOrPayload, status);
+    for (final m in _statusOrPayload.allMatches(src)) {
+      if (!shown(m.start)) continue;
+      status.add('$path:${parsed.lineOf(m.start)}');
+    }
     for (final m in _serverText.allMatches(src)) {
-      if (allowed(m.start) || !_shownToUser(src, m.start)) continue;
-      // `d['message']` from a normal payload (announcements, CMS text) is
-      // content, not an error: only report it next to a response / error.
-      final before = src.substring((m.start - 60).clamp(0, m.start), m.start);
+      if (!shown(m.start)) continue;
+      final before = parsed.codeOnly.substring(
+        (m.start - 60).clamp(0, m.start),
+        m.start,
+      );
       if (!RegExp(
         r'response|error|exception|\b(?:e|ex|err)\b[?!]?\.',
         caseSensitive: false,
       ).hasMatch(before)) {
         continue;
       }
-      server.add('$path:${_line(src, m.start)}');
+      server.add('$path:${parsed.lineOf(m.start)}');
     }
-    for (final m in _stringLiteral.allMatches(src)) {
-      final hit = _developerWording.firstMatch(m.group(0)!);
-      if (hit == null || allowed(m.start)) continue;
-      if (!_shownToUser(src, m.start)) continue;
-      wording.add('$path:${_line(src, m.start)} ("${hit.group(0)}")');
+    for (final span in parsed.stringLiterals) {
+      if (!shown(span.start)) continue;
+      final literal = src.substring(span.start, span.end);
+      final hit = _developerWording.firstMatch(literal);
+      if (hit != null) {
+        wording.add('$path:${parsed.lineOf(span.start)} ("${hit.group(0)}")');
+      }
     }
   }
 
   // Translation files are user-facing by definition.
-  for (final dir in ['lib', 'l10n', 'assets']) {
+  for (final dir in [
+    'lib',
+    'l10n',
+    'assets',
+    for (final pkg in workspacePackageDirs(_root)) '$pkg/lib',
+  ]) {
     final d = Directory('$_root/$dir');
     if (!d.existsSync()) continue;
     for (final f in d.listSync(recursive: true).whereType<File>()) {
@@ -779,11 +661,12 @@ void _checkSecurity() {
     final plainTokenFiles = secure || firebaseOnly
         ? const <String>[]
         : [
-            for (final MapEntry(key: path, value: src) in _libSources().entries)
-              if (plainStore.hasMatch(src) &&
-                  tokenName.hasMatch(src) &&
-                  !src.contains('encryptionCipher') &&
-                  !src.contains('forbidden:allow'))
+            for (final MapEntry(key: path, value: parsed)
+                in _parsedLib().entries)
+              if (plainStore.hasMatch(parsed.codeOnly) &&
+                  tokenName.hasMatch(parsed.raw) &&
+                  !parsed.codeOnly.contains('encryptionCipher') &&
+                  !parsed.raw.contains('forbidden:allow'))
                 path,
           ];
     _add(
@@ -838,7 +721,9 @@ void _checkSecurity() {
     );
   }
 
-  final logging = RegExp(r'\bprint\(|debugPrint\(').allMatches(all).length;
+  final logging = RegExp(
+    r'\bprint\(|debugPrint\(',
+  ).allMatches(_allCodeOnly()).length;
   _add(
     _sSecurity,
     'No raw print logging',
@@ -857,13 +742,11 @@ void _checkSecurity() {
 void _checkResponsive() {
   final tests = _testSources().values.join('\n');
   final screens = <String, String>{};
-  for (final MapEntry(key: path, value: src) in _libSources().entries) {
+  for (final MapEntry(key: path, value: parsed) in _parsedLib().entries) {
     for (final m in RegExp(
-      r'class (\w+(?:Page|Screen|View)) extends (?:Stateless|Stateful|Consumer|ConsumerStateful|Hook|HookConsumer)Widget',
-    ).allMatches(src)) {
+      r'class\s+(\w+(?:Page|Screen|View))\s+extends\s+(?!State<)\w+',
+    ).allMatches(parsed.codeOnly)) {
       final name = m.group(1)!;
-      // *View only counts in a screens/pages/views folder (EmptyView etc.
-      // are widgets, not screens).
       final isView = name.endsWith('View');
       if (name.startsWith('_') ||
           (isView && !RegExp(r'/(screens|pages|views)/').hasMatch(path))) {
@@ -906,10 +789,6 @@ void _checkResponsive() {
   final locked = <String>[];
   final lockedLocally = <String>[];
   final fixedHeights = <String>[];
-  // A cap that applies to the whole app or a subtree (inside a MediaQuery)
-  // versus one on a single Text (`textScaler:` of a logo or a fixed-size
-  // calendar cell). Decided from the calls around the cap, not from nearby
-  // words: `style.copyWith(…)` next to a logo is not a MediaQuery.
   const textWidgets = {
     'Text',
     'rich',
@@ -917,8 +796,8 @@ void _checkResponsive() {
     'SelectableText',
     'TextSpan',
   };
-  bool widgetLevel(String src, int offset) {
-    final calls = _enclosingCalls(src, offset, 6);
+  bool widgetLevel(DartSource parsed, int offset) {
+    final calls = parsed.enclosingCalls(offset, 6);
     if (calls.any(
       (c) =>
           c == 'MediaQuery' ||
@@ -933,48 +812,66 @@ void _checkResponsive() {
 
   var usesSafeArea = false;
   var adaptive = false;
-  for (final MapEntry(key: path, value: src) in _libSources().entries) {
-    usesSafeArea |= src.contains('SafeArea');
+  final customTextCalls = _semantics().customUiCalls;
+  for (final MapEntry(key: path, value: parsed) in _parsedLib().entries) {
+    final code = parsed.codeOnly;
+    final src = parsed.raw;
+    usesSafeArea |= code.contains('SafeArea');
     adaptive |= RegExp(
       r'LayoutBuilder|MediaQuery\.sizeOf|MediaQuery\.of\(context\)\.size|WindowSize|NavigationRail|breakpoint',
       caseSensitive: false,
-    ).hasMatch(src);
-    final lines = src.split('\n');
-    var lineStart = 0;
-    for (var i = 0; i < lines.length; lineStart += lines[i].length + 1, i++) {
-      final l = lines[i];
-      if (l.trimLeft().startsWith('//')) continue;
-      if (l.contains('TextScaler.noScaling') ||
-          RegExp(r'textScaleFactor\s*:\s*1(\.0)?\b').hasMatch(l)) {
-        final at = l.contains('TextScaler.noScaling')
-            ? l.indexOf('TextScaler.noScaling')
-            : l.indexOf('textScaleFactor');
-        (widgetLevel(src, lineStart + at) ? lockedLocally : locked).add(
-          '$path:${i + 1}',
-        );
-      }
-      final clamp = RegExp(
-        r'maxScaleFactor:\s*([0-9.]+)',
-      ).firstMatch(l)?.group(1);
-      final context = lines
-          .sublist((i - 6).clamp(0, lines.length), i + 1)
-          .join(' ');
-      if (clamp != null &&
-          (double.tryParse(clamp) ?? 3) < 2 &&
+    ).hasMatch(code);
+
+    for (final m in RegExp(
+      r'TextScaler\.noScaling|textScaleFactor\s*:\s*1(?:\.0)?\b',
+    ).allMatches(code)) {
+      if (parsed.isAllowed(m.start)) continue;
+      (widgetLevel(parsed, m.start) ? lockedLocally : locked).add(
+        '$path:${parsed.lineOf(m.start)}',
+      );
+    }
+
+    for (final m in RegExp(
+      r'maxScaleFactor\s*:\s*([0-9.]+)',
+    ).allMatches(code)) {
+      if (parsed.isAllowed(m.start)) continue;
+      final clamp = m.group(1)!;
+      final window = code.substring((m.start - 250).clamp(0, m.start), m.end);
+      if ((double.tryParse(clamp) ?? 3) < 2 &&
           !RegExp(
             r'Navigation|Rail|AppBar|TabBar|BottomBar|chrome',
             caseSensitive: false,
-          ).hasMatch(context)) {
-        (widgetLevel(src, lineStart + l.indexOf('maxScaleFactor'))
-                ? lockedLocally
-                : locked)
-            .add('$path:${i + 1} (capped at ${clamp}x)');
+          ).hasMatch(window)) {
+        (widgetLevel(parsed, m.start) ? lockedLocally : locked).add(
+          '$path:${parsed.lineOf(m.start)} (capped at ${clamp}x)',
+        );
       }
     }
-    for (final m in RegExp(
-      r'SizedBox\(\s*height:\s*\d+[^)]{0,80}?child:\s*(?:const\s+)?Text\(',
-    ).allMatches(src)) {
-      fixedHeights.add('$path:${_line(src, m.start)}');
+
+    // Structural check for fixed-height SizedBox / Container wrapping text.
+    for (final m in RegExp(r'\b(SizedBox|Container)\s*\(').allMatches(code)) {
+      if (parsed.isAllowed(m.start)) continue;
+      final call = parsed.inspectCallAt(m.end - 1, callee: m.group(1)!);
+      if (call == null) continue;
+      final hArg = call.named('height');
+      final childArg = call.named('child');
+      if (hArg == null || childArg == null) continue;
+      final hText = src.substring(hArg.start, hArg.end);
+      final isLiteralNumber = RegExp(
+        r'^\s*height\s*:\s*\d+(?:\.\d+)?\s*$',
+      ).hasMatch(hText);
+      if (!isLiteralNumber) continue;
+      final childCode = code.substring(childArg.start, childArg.end);
+      final wrapsText =
+          RegExp(
+            r'\b(?:Text|RichText|SelectableText)\s*\(',
+          ).hasMatch(childCode) ||
+          customTextCalls.any(
+            (w) => RegExp('\\b${RegExp.escape(w)}\\s*\\(').hasMatch(childCode),
+          );
+      if (wrapsText) {
+        fixedHeights.add('$path:${parsed.lineOf(m.start)}');
+      }
     }
   }
   _add(
@@ -1395,33 +1292,25 @@ void _checkStorePolicies() {
   );
   final guard = RegExp(
     r'kDebugMode|kReleaseMode|kProfileMode|fromEnvironment|assert\(|forbidden:allow'
-    // A variable or parameter that selects the build: `if (isRelease) …`.
     r'|\b(?:is|in)(?:Release|Debug|Prod|Production|Dev)(?:Mode|Build)?\b',
   );
-  for (final MapEntry(key: path, value: src) in _libSources().entries) {
-    final lines = src.split('\n');
-    for (var i = 0; i < lines.length; i++) {
-      final line = lines[i];
-      final t = line.trimLeft();
-      if (t.startsWith('//') ||
-          t.startsWith('import ') ||
-          t.startsWith('export ') ||
-          t.startsWith('part ')) {
-        continue;
+  for (final MapEntry(key: path, value: parsed) in _parsedLib().entries) {
+    final src = parsed.raw;
+    for (final m in hostPattern.allMatches(src)) {
+      if (parsed.isAllowed(m.start)) continue;
+      final before = parsed.codeOnly.substring(
+        (m.start - 240).clamp(0, m.start),
+        (m.end + 80).clamp(0, parsed.codeOnly.length),
+      );
+      if (!guard.hasMatch(before)) {
+        devHosts.add('$path:${parsed.lineOf(m.start)}');
       }
-      if (hostPattern.hasMatch(line)) {
-        // Code lines only: a comment that says "release" is not a guard.
-        final context = lines
-            .sublist((i - 3).clamp(0, i), i + 1)
-            .where((l) => !l.trimLeft().startsWith('//'))
-            .join('\n');
-        if (!guard.hasMatch(context)) devHosts.add('$path:${i + 1}');
-      }
-      if (RegExp(
-        r'isTestFlight|sandboxReceipt|isReviewer|appleReview|googleReview|reviewMode|isInReview',
-      ).hasMatch(line)) {
-        reviewerChecks.add('$path:${i + 1}');
-      }
+    }
+    for (final m in RegExp(
+      r'\b(?:isTestFlight|sandboxReceipt|isReviewer|appleReview|googleReview|reviewMode|isInReview)\b',
+    ).allMatches(parsed.codeOnly)) {
+      if (parsed.isAllowed(m.start)) continue;
+      reviewerChecks.add('$path:${parsed.lineOf(m.start)}');
     }
   }
   _add(
@@ -1451,11 +1340,11 @@ void _checkStorePolicies() {
 void _checkNavigationAndPermissions() {
   const section = 'Navigation & permissions';
   final tests = _testSources().values.join('\n');
-  final all = _libSources().values.join('\n');
+  final all = _allCodeOnly();
 
   // Android back button: nested navigation is where it goes wrong.
   final nested = RegExp(
-    r'BottomNavigationBar|NavigationBar\(|NavigationRail|IndexedStack|StatefulShellRoute|TabBarView',
+    r'BottomNavigationBar|NavigationBar\(|NavigationRail|IndexedStack|StatefulShellRoute|TabBarView|AutoTabsScaffold|CupertinoTabScaffold',
   ).hasMatch(all);
   if (nested) {
     final tested = RegExp(
@@ -1479,11 +1368,11 @@ void _checkNavigationAndPermissions() {
     r'Permission\.\w+\.request\(|\.requestPermission\(|requestNotificationsPermission\(|requestTrackingAuthorization\(|requestPermissions\(',
   );
   final atLaunch = [
-    for (final MapEntry(key: path, value: src) in _libSources().entries)
+    for (final MapEntry(key: path, value: parsed) in _parsedLib().entries)
       if (RegExp(
             r'(^|/)(main|bootstrap|app|splash\w*)\.dart$',
           ).hasMatch(path) &&
-          request.hasMatch(src))
+          request.hasMatch(parsed.codeOnly))
         path,
   ];
   if (request.hasMatch(all)) {
@@ -1502,16 +1391,15 @@ void _checkNavigationAndPermissions() {
 
   // A global full-width button style breaks every Row that holds a button.
   final wideButtons = <String>[];
-  for (final MapEntry(key: path, value: src) in _libSources().entries) {
-    if (!RegExp(r'ThemeData\(').hasMatch(src)) continue;
+  for (final MapEntry(key: path, value: parsed) in _parsedLib().entries) {
+    if (!RegExp(r'ThemeData\s*\(').hasMatch(parsed.codeOnly)) continue;
     for (final m in RegExp(
-      r'minimumSize:\s*(?:const\s+)?(?:Size\.fromHeight\(|Size\(\s*double\.infinity)',
-    ).allMatches(src)) {
-      // Only inside a theme (…ThemeData(…)); a style on one button is fine.
-      if (!_enclosingCalls(src, m.start).any((c) => c.endsWith('ThemeData'))) {
+      r'minimumSize\s*:\s*(?:const\s+)?(?:Size\.fromHeight\(|Size\(\s*double\.infinity)',
+    ).allMatches(parsed.codeOnly)) {
+      if (!parsed.enclosingCalls(m.start).any((c) => c.endsWith('ThemeData'))) {
         continue;
       }
-      wideButtons.add('$path:${_line(src, m.start)}');
+      wideButtons.add('$path:${parsed.lineOf(m.start)}');
     }
   }
   if (wideButtons.isNotEmpty) {
@@ -1695,8 +1583,8 @@ void _checkLeftovers() {
       'Set the real app name.',
     );
   }
-  if (_pubspec.contains('description: "A new Flutter project."') ||
-      _pubspec.contains(
+  if (_rootPubspec.contains('description: "A new Flutter project."') ||
+      _rootPubspec.contains(
         'Production-ready, security-hardened Flutter starter',
       )) {
     _add(
@@ -1758,17 +1646,20 @@ void _checkCodeHealth() {
     todos.isEmpty ? null : 'Resolve them or move them to tracked issues.',
   );
 
+  final matSince = _policies.flutter.materialUiStandaloneSince;
   final oldMaterial = _libSources().entries
       .where((e) => e.value.contains('package:flutter/material.dart'))
       .map((e) => e.key)
       .toList();
-  if (oldMaterial.isNotEmpty && _flutterAtLeast(3, 47)) {
+  if (oldMaterial.isNotEmpty &&
+      matSince.length >= 2 &&
+      _flutterAtLeast(matSince[0], matSince[1])) {
     _add(
       _sCode,
       'Deprecated Material import',
       Level.warn,
-      'package:flutter/material.dart is deprecated since Flutter 3.47 (${oldMaterial.length} file(s)).',
-      'Run `flutter pub add material_ui` and `dart fix --apply` (on Flutter >= 3.47).',
+      'package:flutter/material.dart is deprecated since Flutter ${matSince[0]}.${matSince[1]} (${oldMaterial.length} file(s)).',
+      'Optional for existing apps: run `flutter pub add material_ui` and `dart fix --apply` when ready (see EXISTING-PROJECTS.md).',
     );
   }
 
@@ -1830,10 +1721,137 @@ void _checkCodeHealth() {
   );
 }
 
+// ------------------------------------------------ non-Flutter mobile projects
+
+Future<void> _runNonFlutterGates() async {
+  final r = await Process.run(
+    Platform.resolvedExecutable,
+    ['$_scriptsDir/check_forbidden.dart', _root],
+    stdoutEncoding: const Utf8Codec(allowMalformed: true),
+    stderrEncoding: const Utf8Codec(allowMalformed: true),
+  );
+  final out = '${r.stdout}\n${r.stderr}'.trim();
+  final m = RegExp(r'(\d+) blocking, (\d+) warning').firstMatch(out);
+  final blocking = int.parse(m?.group(1) ?? '0');
+  final warnings = int.parse(m?.group(2) ?? '0');
+  final level = r.exitCode != 0
+      ? Level.fail
+      : (warnings > 0 ? Level.warn : Level.pass);
+  final summary = m == null
+      ? (r.exitCode == 0 ? 'None found' : 'Some found')
+      : [
+          if (blocking > 0)
+            '$blocking security pattern(s) (http://, secret in code or plain storage)',
+          if (warnings > 0) '$warnings warning(s)',
+        ].join('; ');
+  _gates.add(
+    GateResult(
+      'Forbidden patterns',
+      level,
+      summary,
+      level == Level.pass ? null : _tail(out, 40),
+    ),
+  );
+  _add(_sGates, 'Forbidden patterns', level, summary);
+}
+
+void _checkNonFlutterApp() {
+  final files = <String, String>{};
+  for (final dir in [
+    'src',
+    'app',
+    if (_profile.iosAppDir != null) _profile.iosAppDir!,
+  ]) {
+    final d = Directory('$_root/$dir');
+    if (!d.existsSync()) continue;
+    for (final f in d.listSync(recursive: true).whereType<File>()) {
+      final rel = f.path.substring(_root.length + 1).replaceAll(r'\', '/');
+      if (rel.contains('/node_modules/') ||
+          rel.contains('/Pods/') ||
+          rel.contains('/build/')) {
+        continue;
+      }
+      if (!RegExp(r'\.(tsx?|jsx?|kt|java|swift|m)$').hasMatch(rel)) continue;
+      files[rel] = f.readAsStringSync();
+    }
+  }
+  final all = files.values.join('\n');
+  _hasAccounts = RegExp(
+    r'signIn|logIn\(|login\(|signUp|register\(|FirebaseAuth|createUserWithEmailAndPassword|useAuth',
+  ).hasMatch(all);
+  if (!_hasAccounts) {
+    _add(
+      _sStore,
+      'Account rules',
+      Level.pass,
+      'No sign-in or sign-up found in the code, so account-deletion and reviewer-login rules were not applied.',
+    );
+  } else {
+    final deletion = RegExp(
+      r'deleteAccount|delete_account|deleteUser|removeAccount',
+    ).hasMatch(all);
+    _add(
+      _sStore,
+      'In-app account deletion',
+      deletion ? Level.pass : Level.fail,
+      deletion
+          ? 'Account deletion call found in app code.'
+          : 'The app has accounts but no in-app account deletion found (required by Google Play and the App Store).',
+      deletion
+          ? null
+          : 'Add in-app account deletion that deletes server data + publish a web deletion URL.',
+    );
+    _add(
+      _sStore,
+      'Test account for store review (the app has sign-in)',
+      Level.manual,
+      'Create a dedicated, non-expiring reviewer account with sample data and no OTP, and enter it in Google Play Console (App access) and App Store Connect (App Review Information).',
+    );
+  }
+
+  final privacy = RegExp(
+    r'privacy[ _-]?(?:policy|notice|url)|privacyPolicy|gizlilik|kvkk|datenschutz',
+    caseSensitive: false,
+  ).hasMatch(all);
+  _add(
+    _sStore,
+    'Privacy policy link in the app',
+    privacy ? Level.pass : Level.warn,
+    privacy ? 'Found.' : 'No privacy policy link found inside the app.',
+    privacy ? null : 'Add a "Privacy policy" link in settings/profile.',
+  );
+
+  // SDK data collection summary across npm / Gradle / CocoaPods.
+  final collected = [
+    if (_hasAccounts)
+      'your own sign-in → e-mail address, user IDs (plus every profile field you store)',
+    for (final MapEntry(key: pkg, value: data) in _sdkData.entries)
+      if (_profile.matchedPackage(pkg) case final actual?) '$actual → $data',
+  ];
+  if (collected.isNotEmpty) {
+    _add(
+      'Store policy',
+      'Data your SDKs collect (declare it in both stores)',
+      Level.manual,
+      'Detected SDKs: ${collected.join('; ')}. '
+          'Ensure Google Play Data safety, Apple App Privacy labels and your privacy policy match.',
+    );
+  }
+}
+
 // ----------------------------------------------------------------- play audit
 
 Future<void> _runPlayAudit(String outDir, String? lastVersionCode) async {
-  final hasAndroid = Directory('$_root/android').existsSync();
+  if (!_profile.isFlutter && !_profile.hasAndroid) {
+    _add(
+      'Google Play',
+      'Android project',
+      Level.manual,
+      'No Android target in this ${_profile.kind.label} project: the Google Play audit was skipped.',
+    );
+    return;
+  }
+  final hasAndroid = _profile.hasAndroid;
   final jsonPath = '$outDir/play_readiness.json';
   final r = await Process.run(Platform.resolvedExecutable, [
     '$_scriptsDir/play_readiness.dart',
@@ -1854,7 +1872,7 @@ Future<void> _runPlayAudit(String outDir, String? lastVersionCode) async {
       'Play audit',
       Level.fail,
       'The Google Play audit could not run, so nothing about Android release was checked: ${_tail('${r.stderr}', 3)}',
-      'Run `dart run tool/flutter_store_ready/play_readiness.dart .` and fix the error.',
+      'Run `dart run <skill>/scripts/play_readiness.dart .` and fix the error.',
     );
     return;
   }
@@ -1885,12 +1903,12 @@ Future<void> _runPlayAudit(String outDir, String? lastVersionCode) async {
 
 Future<void> _runAppStoreAudit(String outDir, String? lastBuildNumber) async {
   const section = 'App Store';
-  if (!Directory('$_root/ios').existsSync()) {
+  if (!_profile.hasIos && !Directory('$_root/ios').existsSync()) {
     _add(
       section,
       'iOS project',
       Level.manual,
-      'No ios/ folder: the App Store audit was skipped. Run `flutter create --platforms=ios .` if the app should ship on iPhone.',
+      'No iOS target: the App Store audit was skipped.${_profile.isFlutter ? ' Run `flutter create --platforms=ios .` if the app should ship on iPhone.' : ''}',
     );
     return;
   }
@@ -1913,7 +1931,7 @@ Future<void> _runAppStoreAudit(String outDir, String? lastBuildNumber) async {
       'App Store audit',
       Level.fail,
       'The App Store audit could not run, so nothing about iOS was checked: ${_tail('${r.stderr}', 3)}',
-      'Run `dart run tool/flutter_store_ready/app_store_readiness.dart .` and fix the error.',
+      'Run `dart run <skill>/scripts/app_store_readiness.dart .` and fix the error.',
     );
     return;
   }
@@ -1942,16 +1960,13 @@ void _write(String outDir, bool noFail) {
       : warns > 0
       ? '⚠️ ALMOST READY — no blockers, $warns recommendation(s) left.'
       : '✅ READY — finish the manual store tasks listed below.';
-  final name =
-      RegExp(
-        r'^name:\s*(\S+)',
-        multiLine: true,
-      ).firstMatch(_pubspec)?.group(1) ??
-      _root.split(RegExp(r'[\\/]')).last;
+  final name = _profile.name;
   String clean(String? s) => (s ?? '').replaceAll('\n', ' ');
 
   final b = StringBuffer()
-    ..writeln('# Production readiness report — `$name`')
+    ..writeln(
+      '# Production readiness report — `$name`${_profile.isFlutter ? '' : ' (${_profile.kind.label})'}',
+    )
     ..writeln()
     ..writeln(
       'Generated: ${DateTime.now().toIso8601String().substring(0, 16).replaceAll('T', ' ')} · by the flutter-store-ready skill',
@@ -2030,6 +2045,7 @@ void _write(String outDir, bool noFail) {
   File('$outDir/findings.json').writeAsStringSync(
     const JsonEncoder.withIndent('  ').convert({
       'project': name,
+      'projectKind': _profile.kind.name,
       'verdict': fails > 0
           ? 'not_ready'
           : (warns > 0 ? 'almost_ready' : 'ready'),
@@ -2056,23 +2072,24 @@ String _label(Level l) => switch (l) {
 // ---------------------------------------------------------------------- utils
 
 Map<String, String>? _libCache;
-Map<String, String> _libSources() => _libCache ??= _sources('lib');
+Map<String, String> _libSources() =>
+    _libCache ??= collectWorkspaceDartFiles(_root, 'lib');
+
+Map<String, DartSource>? _parsedLibCache;
+Map<String, DartSource> _parsedLib() => _parsedLibCache ??= {
+  for (final MapEntry(:key, :value) in _libSources().entries)
+    key: DartSource.parse(value),
+};
+
+ProjectSemantics? _semanticsCache;
+ProjectSemantics _semantics() =>
+    _semanticsCache ??= ProjectSemantics.analyze(_parsedLib());
+
+String _allCodeOnly() => _parsedLib().values.map((p) => p.codeOnly).join('\n');
 
 Map<String, String>? _testCache;
-Map<String, String> _testSources() => _testCache ??= _sources('test');
-
-Map<String, String> _sources(String dir) {
-  final d = Directory('$_root/$dir');
-  if (!d.existsSync()) return const {};
-  final result = <String, String>{};
-  for (final f in d.listSync(recursive: true).whereType<File>()) {
-    if (!f.path.endsWith('.dart')) continue;
-    if (RegExp(r'\.(g|freezed|gr|mocks)\.dart$').hasMatch(f.path)) continue;
-    final rel = f.path.substring(_root.length + 1).replaceAll(r'\', '/');
-    result[rel] = f.readAsStringSync();
-  }
-  return result;
-}
+Map<String, String> _testSources() =>
+    _testCache ??= collectWorkspaceDartFiles(_root, 'test');
 
 /// False when the installed Flutter is older or its version is unknown.
 bool _flutterAtLeast(int major, int minor) {
@@ -2093,9 +2110,6 @@ String? _read(String rel) {
   final f = File('$_root/$rel');
   return f.existsSync() ? f.readAsStringSync() : null;
 }
-
-int _line(String src, int offset) =>
-    '\n'.allMatches(src.substring(0, offset)).length + 1;
 
 String _list(List<String> items, [int max = 8]) =>
     items.take(max).join(', ') +

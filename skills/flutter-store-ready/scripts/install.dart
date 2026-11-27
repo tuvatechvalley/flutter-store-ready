@@ -60,7 +60,9 @@ void main(List<String> args) {
   }
 
   _installTools();
-  _warnIfDart2(pubspec.readAsStringSync());
+  final pubspecText = pubspec.readAsStringSync();
+  _warnIfDart2(pubspecText);
+  if (!args.contains('--starter')) _noteExistingStack(pubspecText);
   _installAnalysisOptions(force: force);
   _installCi();
   _installGitFiles();
@@ -71,7 +73,7 @@ void main(List<String> args) {
         !main.existsSync() ||
         main.readAsStringSync().contains('_incrementCounter') ||
         main.readAsStringSync().trim().length < 400;
-    final tooOld = _starterNeedsNewerFlutter();
+    final tooOld = force ? null : _starterNeedsNewerFlutter();
     if (!isFresh && !force) {
       stderr.writeln(
         '\nlib/main.dart is not the default counter app. Refusing to overwrite '
@@ -146,8 +148,15 @@ String? _starterNeedsNewerFlutter() {
 }
 
 String? _installedFlutterVersion() {
-  // Set by Flutter's `dart` wrapper; avoids starting the flutter tool.
-  if (Platform.environment['FLUTTER_ROOT'] case final root?) {
+  // Set by Flutter's `dart` wrapper, or inferred from `<flutter>/bin/cache/dart-sdk/bin/dart`;
+  // avoids starting the flutter tool.
+  final inferredRoot = File(
+    Platform.resolvedExecutable,
+  ).parent.parent.parent.parent.parent.path;
+  for (final root in [
+    if (Platform.environment['FLUTTER_ROOT'] case final r?) r,
+    inferredRoot,
+  ]) {
     final json = File('$root/bin/cache/flutter.version.json');
     if (json.existsSync()) {
       final v = RegExp(
@@ -191,6 +200,36 @@ void _warnIfDart2(String pubspec) {
   );
 }
 
+void _noteExistingStack(String pubspec) {
+  final stacks = [
+    for (final pkg in [
+      'flutter_bloc',
+      'bloc',
+      'provider',
+      'flutter_riverpod',
+      'hooks_riverpod',
+      'get',
+      'mobx',
+      'auto_route',
+      'go_router',
+    ])
+      if (RegExp('^\\s+$pkg:', multiLine: true).hasMatch(pubspec)) pkg,
+  ];
+  final classicMaterial = !RegExp(
+    r'^\s+material_ui:',
+    multiLine: true,
+  ).hasMatch(pubspec);
+  if (stacks.isEmpty && !classicMaterial) return;
+  final detected = [
+    ...stacks,
+    if (classicMaterial) 'flutter/material.dart',
+  ].join(', ');
+  _notes.add(
+    'Detected existing stack ($detected). Keep your state management and '
+    'router; see EXISTING-PROJECTS.md when adapting core helpers.',
+  );
+}
+
 void _installTools() {
   final target = Directory('$_project/tool/flutter_store_ready')
     ..createSync(recursive: true);
@@ -201,11 +240,15 @@ void _installTools() {
     'app_store_readiness.dart',
     'check_forbidden.dart',
     'harden_platforms.dart',
+    'dart_scanner.dart',
+    'project_detector.dart',
+    'store_policies.dart',
+    'store_policies.json',
   ]) {
     File('$_skillDir/scripts/$name').copySync('${target.path}/$name');
   }
   _done.add(
-    'tool/flutter_store_ready/ (verify, report, Play + App Store audits, checks)',
+    'tool/flutter_store_ready/ (verify, report, Play + App Store audits, checks, policies)',
   );
 }
 

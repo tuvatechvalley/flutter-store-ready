@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "Acme Expo Beta",
+    "slug": "acme-expo",
+    "version": "1.0.0",
+    "android": {
+      "package": "com.example.acme",
+      "permissions": [
+        "android.permission.READ_MEDIA_IMAGES"
+      ]
+    },
+    "ios": {
+      "bundleIdentifier": "com.example.acme",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        },
+        "NSCameraUsageDescription": "Need camera"
+      }
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "targetSdkVersion": 34,
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ]
+  }
+}

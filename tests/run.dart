@@ -239,6 +239,16 @@ Future<String?> _installMergesWindowsPubspec(String scripts) async {
       return 'starter lib/ was not copied';
     }
     if (!File('${dir.path}/AGENTS.md').existsSync()) return 'AGENTS.md missing';
+    for (final helper in [
+      'dart_scanner.dart',
+      'project_detector.dart',
+      'store_policies.dart',
+      'store_policies.json',
+    ]) {
+      if (!File('${dir.path}/tool/flutter_store_ready/$helper').existsSync()) {
+        return 'tool/flutter_store_ready/$helper was not installed';
+      }
+    }
     return null;
   } finally {
     dir.deleteSync(recursive: true);
@@ -252,6 +262,22 @@ Future<String?> _installMergesWindowsPubspec(String scripts) async {
 List<String> _checkSkillFiles(String skillsDir) {
   final problems = <String>[];
   final kit = '$skillsDir/flutter-store-ready';
+  final policiesFile = File('$kit/scripts/store_policies.json');
+  if (!policiesFile.existsSync()) {
+    problems.add('flutter-store-ready/scripts/store_policies.json is missing');
+  } else {
+    try {
+      final decoded =
+          jsonDecode(policiesFile.readAsStringSync()) as Map<String, Object?>;
+      for (final section in ['googlePlay', 'appStore', 'flutter']) {
+        if (decoded[section] is! Map) {
+          problems.add('store_policies.json missing "$section" object');
+        }
+      }
+    } on Object catch (e) {
+      problems.add('store_policies.json invalid JSON: $e');
+    }
+  }
   for (final dir in Directory(skillsDir).listSync().whereType<Directory>()) {
     final name = dir.path.split(RegExp(r'[\\/]')).last;
     final skill = File('${dir.path}/SKILL.md');
