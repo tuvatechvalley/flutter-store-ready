@@ -108,6 +108,12 @@ dart run tests/run.dart expo-bad        # Expo managed multi-store audit
 
 Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
 
+## Disclaimer & Trademarks
+
+This toolkit generates technical audits, store-form drafts, and reply templates as a developer aid only. It does **not** constitute legal advice and does **not** guarantee Google Play or App Store approval. Developers remain solely responsible for reviewing and verifying all code, privacy policies, export-compliance declarations, and store console submissions against current official policies.
+
+This project is an independent open-source project by **Tuva Tech Valley** and is not affiliated with, endorsed by, or sponsored by Google LLC or Apple Inc. Flutter, Dart, Android, and Google Play are trademarks of Google LLC. iOS, Xcode, TestFlight, and App Store are trademarks of Apple Inc. All other trademarks belong to their respective owners.
+
 ## License
 
-MIT
+MIT — Copyright (c) 2026 Tuva Tech Valley. See [LICENSE](LICENSE).
