@@ -80,6 +80,10 @@
       "title": "Text size fixed on single widgets",
       "level": "warn",
       "detail_contains": "brand.dart"
+    },
+    {
+      "title": "No fixed heights around text",
+      "level": "pass"
     }
   ],
   "must_not": [

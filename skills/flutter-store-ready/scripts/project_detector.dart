@@ -450,17 +450,26 @@ final class ProjectProfile {
       ..._asMap(packageJson['devDependencies']),
     };
     for (final c in candidates) {
-      if (pubspec.isNotEmpty &&
-          RegExp(
-            '^\\s+${RegExp.escape(c)}:',
-            multiLine: true,
-          ).hasMatch(pubspec)) {
-        return c;
+      final esc = RegExp.escape(c);
+      // A Flutter project declares every plugin in pubspec.yaml; its Gradle
+      // and Podfile text only mirror them (and contain words such as
+      // `IllegalArgumentException`, which hides "gal").
+      if (pubspec.isNotEmpty) {
+        if (RegExp('^\\s+$esc:', multiLine: true).hasMatch(pubspec)) return c;
+        continue;
       }
       if (npmDeps.containsKey(c)) return c;
-      if (gradleText.isNotEmpty && gradleText.contains(c)) return c;
+      // Gradle: only a dependency coordinate — "group:artifact[:version]".
+      if (gradleText.isNotEmpty &&
+          RegExp('''["'][\\w.\\-]+:$esc(?:["':])''').hasMatch(gradleText)) {
+        return c;
+      }
+      // CocoaPods: `pod 'Name'` in the Podfile or `- Name (` in Podfile.lock.
       if (podfileText.isNotEmpty &&
-          RegExp('\\b${RegExp.escape(c)}\\b').hasMatch(podfileText)) {
+          RegExp(
+            '''(?:\\bpod\\s+["']$esc(?:/[^"']*)?["'])|(?:^\\s*-\\s+"?$esc(?:/\\S*?)?"?\\s+\\()''',
+            multiLine: true,
+          ).hasMatch(podfileText)) {
         return c;
       }
     }

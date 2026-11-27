@@ -128,12 +128,15 @@ Future<void> main(List<String> args) async {
   final gradle = _readGradle();
   final manifestRel = '${_profile.androidAppDir}/src/main/AndroidManifest.xml';
   final manifest = _read(manifestRel) ?? '';
+  // The signing file is whatever build.gradle loads: Flutter's convention is
+  // key.properties, React Native / Expo projects often use keystore.properties.
+  _signingProps = _signingPropsName(gradle);
   final keyPropsPath = _profile.androidRoot == '.'
-      ? 'key.properties'
-      : '${_profile.androidRoot}/key.properties';
+      ? _signingProps
+      : '${_profile.androidRoot}/$_signingProps';
   final keyProps =
       _readProperties(keyPropsPath) ??
-      _readProperties('android/key.properties');
+      _readProperties('android/$_signingProps');
 
   await _checkSigning(gradle, keyProps);
   _checkIdentity(gradle, manifest, lastVersionCode);
@@ -313,17 +316,38 @@ Map<String, Object?> _expoBuildPropertiesSection(String platform) {
 
 // ------------------------------------------------------------------ signing
 
+/// Name of the signing properties file `build.gradle(.kts)` loads (Flutter:
+/// key.properties; React Native / Expo templates: keystore.properties …).
+String _signingProps = 'key.properties';
+
+String _signingPropsName(String gradle) {
+  for (final m in RegExp(
+    r'''file\(\s*["']([\w./-]+\.properties)["']\s*\)''',
+  ).allMatches(gradle)) {
+    final name = m.group(1)!.split('/').last;
+    if (name != 'gradle.properties' && name != 'local.properties') {
+      return name;
+    }
+  }
+  return 'key.properties';
+}
+
 Future<void> _checkSigning(String gradle, Map<String, String>? props) async {
   const area = 'Signing';
+  // Expo / React Native apps built with EAS keep the upload key in EAS
+  // credentials: no properties file is expected on this machine.
+  final eas = _profile.isExpo && File('$_root/eas.json').existsSync();
   if (props == null) {
     _add(
       area,
-      'android/key.properties',
-      _ci ? Status.warn : Status.fail,
+      'android/$_signingProps',
+      _ci || eas ? Status.warn : Status.fail,
       _ci
           ? 'Missing (expected on CI: the upload key lives on the release machine). Not checked: keystore, alias, passwords.'
+          : eas
+          ? 'Not on this machine. With EAS Build the upload key is kept in EAS credentials (`eas credentials`) — confirm the production profile uses it; local release builds would be debug-signed.'
           : 'Missing. Release builds would be signed with the debug key and Play rejects them.',
-      'Create an upload key and android/key.properties (see GOOGLE-PLAY-RELEASE.md in the flutter-store-ready skill).',
+      'Create an upload key and android/$_signingProps (see GOOGLE-PLAY-RELEASE.md in the flutter-store-ready skill).',
     );
   } else {
     final missing = [
@@ -334,7 +358,7 @@ Future<void> _checkSigning(String gradle, Map<String, String>? props) async {
     ].where((k) => (props[k] ?? '').isEmpty).toList();
     _add(
       area,
-      'key.properties fields',
+      '$_signingProps fields',
       missing.isEmpty ? Status.pass : Status.fail,
       missing.isEmpty
           ? 'storeFile, storePassword, keyAlias, keyPassword are set.'
@@ -343,8 +367,8 @@ Future<void> _checkSigning(String gradle, Map<String, String>? props) async {
   }
 
   final usesKeyProps =
-      gradle.contains('key.properties') || gradle.contains('signingConfigs');
-  final hasKeyPropsRef = gradle.contains('key.properties');
+      gradle.contains(_signingProps) || gradle.contains('signingConfigs');
+  final hasKeyPropsRef = gradle.contains(_signingProps);
   // Only look at buildTypes: signingConfigs also has a `release { }` block.
   final buildTypesAt = gradle.indexOf('buildTypes');
   final buildTypes = buildTypesAt < 0 ? gradle : gradle.substring(buildTypesAt);

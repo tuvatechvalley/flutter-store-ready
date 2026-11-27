@@ -24,6 +24,13 @@ Versions follow [semantic versioning](https://semver.org). While the version is 
 - Streamlined `skills/flutter-store-ready/SKILL.md` (~45% smaller) by removing duplicate prose already covered in the on-demand reference guides.
 - Added `monorepo-bloc` and `expo-bad` regression fixtures in `tests/fixtures/`.
 
+### Fixes after review on six real apps
+- Package detection: a Flutter project is matched on `pubspec.yaml` only; Gradle is matched on dependency coordinates (`group:artifact`) and CocoaPods on `pod '…'` / Podfile.lock entries. Substring matching reported `gal` (inside `IllegalArgumentException`) as an installed plugin.
+- Android signing: the properties file is the one `build.gradle` loads (`keystore.properties` in React Native / Expo templates), not always `key.properties`; with EAS Build a missing file is a warning (keys live in EAS credentials).
+- Expo: a missing `ios.buildNumber` is a warning (Expo falls back to "1"), not a blocker.
+- Fixed heights around text: small square boxes (≤ 64, width = height — avatars, badges, icon tiles) are skipped; fixed-height buttons, chip rows and cards are still reported. On the six apps: 83 → 41 locations; every removed one is a small square box.
+- New fixture `rn-keystore`; decoys and planted cases for each fix. 121 checks.
+
 ### Earlier in 0.2.0
 - Split repository into four task-oriented skills: `flutter-store-ready`, `store-review`, `store-forms`, and `store-rejection`.
 - Play: a bundle older than source code warns ("not the current code"); certificate owner names are redacted; `in_app_purchase` counts as collected purchase history only when recorded off-device.

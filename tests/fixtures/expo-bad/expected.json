@@ -46,7 +46,7 @@
     },
     {
       "title": "Build number",
-      "level": "fail",
+      "level": "warn",
       "section_contains": "App Store"
     },
     {

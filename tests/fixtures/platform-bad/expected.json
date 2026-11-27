@@ -90,6 +90,9 @@
     },
     {
       "title": "App Store audit"
+    },
+    {
+      "title": "Permission usage descriptions (depending on use)"
     }
   ]
 }

@@ -219,12 +219,14 @@ void _checkExpoIos(int? lastBuild, {required bool ipad}) {
       'app.json `expo.version` is missing or invalid ("$ver"; App Store allows at most three numeric parts).',
     );
   } else if (build == null || build < 1) {
+    // Expo falls back to build "1" when ios.buildNumber is missing: the first
+    // upload works, the second one is rejected for reusing the build number.
     _add(
       'App identity',
       'Build number',
-      hasEasProd ? Status.warn : Status.fail,
-      'Missing numeric `expo.ios.buildNumber` in app.json${hasEasProd ? ' (acceptable only when remote autoIncrement is enabled in eas.json)' : ''}.',
-      'Set `expo.ios.buildNumber` (e.g. "1") in app.json.',
+      Status.warn,
+      'No numeric `expo.ios.buildNumber` in app.json: Expo uses "1", so only the first upload of a version is accepted${hasEasProd ? ', unless remote autoIncrement is enabled in eas.json' : ''}.',
+      'Set `expo.ios.buildNumber` and raise it for every upload, or enable `"autoIncrement": true` with `"appVersionSource": "remote"` in eas.json.',
     );
   } else if (lastBuild != null && build <= lastBuild) {
     _add(

@@ -8,6 +8,8 @@ class BrandHeader extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     children: [
       const Text('Acme', textScaler: TextScaler.noScaling),
+      // decoy: a 48×48 badge with one letter behaves like an icon
+      Container(width: 48, height: 48, child: const Text('S')),
       FilledButton(
         onPressed: () {},
         style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),

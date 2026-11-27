@@ -95,6 +95,11 @@
       "title": "Text follows the phone's font size",
       "level": "fail",
       "detail_contains": "main.dart"
+    },
+    {
+      "title": "No fixed heights around text",
+      "level": "warn",
+      "detail_contains": "save_bar.dart"
     }
   ],
   "must_not": [

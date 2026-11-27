@@ -15,6 +15,7 @@ android {
         versionName = "1.0.0"
     }
 
+    // decoy: "gal" inside IllegalArgumentException is not the gal package
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("debug")

@@ -861,6 +861,26 @@ void _checkResponsive() {
         r'^\s*height\s*:\s*\d+(?:\.\d+)?\s*$',
       ).hasMatch(hText);
       if (!isLiteralNumber) continue;
+      // A small square box (avatar, badge, icon tile: 48×48 holding "S" or an
+      // emoji) behaves like an icon; reporting every one buries the real
+      // findings (fixed-height buttons, rows, cards).
+      final heightValue = double.parse(
+        RegExp(r'[\d.]+$').firstMatch(hText.trim())!.group(0)!,
+      );
+      final wArg = call.named('width');
+      final widthValue = wArg == null
+          ? null
+          : double.tryParse(
+              RegExp(
+                    r'^\s*width\s*:\s*([\d.]+)\s*$',
+                  ).firstMatch(src.substring(wArg.start, wArg.end))?.group(1) ??
+                  '',
+            );
+      if (widthValue != null &&
+          widthValue == heightValue &&
+          heightValue <= 64) {
+        continue;
+      }
       final childCode = code.substring(childArg.start, childArg.end);
       final wrapsText =
           RegExp(

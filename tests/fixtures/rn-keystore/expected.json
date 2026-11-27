@@ -1,0 +1,23 @@
+{
+  "args": [
+    "--skip-ios"
+  ],
+  "must": [
+    {
+      "title": "keystore.properties fields",
+      "level": "pass"
+    },
+    {
+      "title": "Release signingConfig",
+      "level": "pass"
+    }
+  ],
+  "must_not": [
+    {
+      "title": "android/key.properties"
+    },
+    {
+      "title": "android/keystore.properties"
+    }
+  ]
+}
